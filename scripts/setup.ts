@@ -59,7 +59,7 @@ console.log(`buyer ${buyerTz1} (alias ${alias}) · seller ${sellerTz1}`);
 // 1) MINT a fresh token to the seller (FA2 `mint(owner, token_id)`), unless it already exists.
 if ((await owner(TOKEN)) === '(none)') {
   console.log(`mint token ${TOKEN} -> seller`);
-  await (await buyer.contract.transfer({ to: FA2, amount: 0, parameter: { entrypoint: 'mint', value: m.pair(m.string(sellerTz1), m.int(TOKEN)) }, gasLimit: 200_000, storageLimit: 350, fee: 50_000 })).confirmation();
+  await (await seller.contract.transfer({ to: FA2, amount: 0, parameter: { entrypoint: 'mint', value: m.pair(m.string(sellerTz1), m.int(TOKEN)) }, gasLimit: 200_000, storageLimit: 350, fee: 50_000 })).confirmation();
 } else {
   console.log(`token ${TOKEN} already exists — skip mint`);
 }
