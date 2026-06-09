@@ -16,9 +16,9 @@ import { NATIVE_XTZ, SWAP_SIG, ThreeRouteApi, buildCallEvm, tzToAlias, wrapOpera
 const env = readEnvFile(new URL('../.env', import.meta.url));
 const config = {
   rpcUrl: 'https://michelson.previewnet.tezosx.nomadic-labs.com',
-  userSecret: env.TZ1_SK as string,
+  userSecret: env.BUYER_TZ1_SK as string,
   gateway: 'KT18oDJJKXMKhfE1bSuAPGp92pYcwVDiqsPw', // Michelson->EVM gateway (replaces the gist's `freeRoute` Michelson contract)
-  contracts: { objkt: (env.V4_MKT ?? 'KT1DzhZkEN8UZ6NkhGMDbgHh2W5zLqHDq4G7') as string },
+  contracts: { objkt: (env.OBJKT_MARKETPLACE ?? 'KT1DzhZkEN8UZ6NkhGMDbgHh2W5zLqHDq4G7') as string },
   threeRouteApi: { baseUrl: process.env.RS_API ?? 'http://127.0.0.1:3000', chainId: 128064 },
 };
 
@@ -96,7 +96,8 @@ const batchOperation = await batch.send();
 await batchOperation.confirmation(1);
 console.log(`Operation sent: https://previewnet.tezosx.tzkt.io/${batchOperation.hash}`);
 
-// ADDED (demo): confirm the NFT landed on the buyer tz1
+// ADDED (demo): confirm the NFT landed on the buyer tz1 (small delay — the tzkt indexer lags the node)
+await new Promise((r) => setTimeout(r, 8000));
 const ownerKeys = (await fetch(`https://api.previewnet.tezosx.tzkt.io/v1/bigmaps/442/keys?key=${process.env.TOKEN ?? ''}`).then((r) => r.json()).catch(() => [])) as Array<{ value?: string }>;
 if (process.env.TOKEN) console.log(`token ${process.env.TOKEN} owner: ${ownerKeys[0]?.value ?? '(none)'} ${ownerKeys[0]?.value === userAddress ? '✅ delivered to buyer' : ''}`);
 
