@@ -11,8 +11,8 @@ import { InMemorySigner } from '@taquito/signer';
 import type { MichelsonV1Expression } from '@taquito/rpc';
 import { NATIVE_XTZ, SWAP_SIG, ThreeRouteApi, tzToAlias } from '../sdk/helpers.js';
 
-const env = readEnvFile(new URL('../.env', import.meta.url));
-const need = (k: string): string => { const v = env[k]; if (!v) throw new Error(`missing ${k} in .env`); return v; };
+const env = { ...readEnvFile('../.env'), ...readEnvFile('../.env.setup') }; // .env (shared) + setup-only extras
+const need = (k: string): string => { const v = env[k]; if (!v) throw new Error(`missing ${k} in .env / .env.setup`); return v; };
 
 const TEZ_RPC = 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 const EVM_RPC = 'https://evm.previewnet.tezosx.nomadic-labs.com';
@@ -110,9 +110,11 @@ if (have < needed) {
 
 console.log(`\n✅ ready. Run the example:\n   RS_API=${RS_API} ASK_ID=${askId} TOKEN=${TOKEN} PRICE_XTZ=${PRICE_XTZ} PAY=${PAY} npm run example`);
 
-function readEnvFile(url: URL): Record<string, string> {
+function readEnvFile(rel: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const line of readFileSync(url, 'utf8').split('\n')) {
+  let text: string;
+  try { text = readFileSync(new URL(rel, import.meta.url), 'utf8'); } catch { return out; } // tolerant: file may be absent
+  for (const line of text.split('\n')) {
     const e = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (e) out[e[1] as string] = e[2] as string;
   }
