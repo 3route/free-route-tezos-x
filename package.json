@@ -1,0 +1,30 @@
+{
+  "name": "objkt-usdc-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Tezos-driven SDK: swap any EVM ERC20 to native XTZ and bridge it to a tz1, as composable Tezos op-group operations (call_evm swap+bridge). Marketplace-agnostic.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit && tsc --noEmit -p example/tsconfig.json",
+    "example": "tsx example/example.ts"
+  },
+  "dependencies": {
+    "@taquito/rpc": "^21.0.5",
+    "@taquito/signer": "^21.0.5",
+    "@taquito/taquito": "^21.0.5",
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
