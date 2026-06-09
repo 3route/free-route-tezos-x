@@ -1,51 +1,47 @@
-// Shared types for the SDK core (universal ERC20 -> XTZ swap + bridge).
-import type { TransferParams } from '@taquito/taquito';
+// types.ts — mirrors the L1 gist's types, adapted for Tezos X (EVM-side 3route + tz1 alias).
+//   KEPT 1:1 : ObjktContract / ObjktContractFulfillAskParams (objkt v4 fulfill_ask — same ABI).
+//   CHANGED  : FreeRouteV4Contract (Michelson execute) -> EVM router via call_evm (no Michelson contract);
+//              TezosToken (fa12/fa2/xtz union) -> EVM ERC20 token; SwapParams {input,output,hops} -> 1inch /swap response.
+//   REMOVED  : FA12Contract / FA2Contract / FreeRouteV4ContractHop (Michelson-only).
+import type { ContractAbstraction, ContractMethodObject, ContractProvider, Wallet, MichelsonMap } from '@taquito/taquito';
 
-// --- domain aliases ---
-export type Tz1Address = string; // tz1.../tz2.../tz3...
-export type EvmAddress = string; // 0x...
-export type Hex = string; // 0x-prefixed hex string
+export type Tz1Address = string;
+export type EvmAddress = string;
+export type Hex = string;
 
-// --- network / contracts (minimal — only what the swap+bridge builders need) ---
-export interface NetworkConfig {
-  gatewayTez: string; // Michelson->EVM gateway (%call_evm)
-  swapBridge: string; // the swap+bridge helper contract
-  maxOpGas: number; // hard_gas_limit_per_operation == per_block (batch Σ gasLimit guard)
+// --- objkt v4 — KEPT 1:1 from the gist ---
+export interface ObjktContractFulfillAskParams {
+  ask_id: string;
+  amount: string;
+  proxy_for: string | null;
+  condition_extra: string | null;
+  referrers: MichelsonMap<string, string>;
+}
+export type ObjktContract<T extends ContractProvider | Wallet = ContractProvider> = ContractAbstraction<T> & {
+  methodsObject: {
+    fulfill_ask(params: ObjktContractFulfillAskParams): ContractMethodObject<T>;
+  };
+};
+
+// --- token — was the gist's TezosToken; now an EVM ERC20 from the 3route registry ---
+export interface ThreeRouteToken {
+  readonly address: EvmAddress;
+  readonly symbol: string;
+  readonly name: string;
+  readonly decimals: number;
 }
 
-// pinned per-op limits applied to the call_evm ops by the builders
-export interface OpDefaults {
-  callEvmGas: number;
-  fee: number;
-  storageLimit: number;
+// --- swap — was the gist's SwapParams {input, output, hops}; now the 1inch-v6.1 /swap response ---
+export interface SwapTx {
+  from: string;
+  to: EvmAddress; // router
+  data: Hex; // ready calldata
+  value: string;
+  gas: string;
+  gasPrice: string;
 }
-
-// --- swap quote (from rust-3route exact-out) ---
-export interface Quote {
-  tokenIn: EvmAddress;
-  amountIn: bigint; // input token units — exact-out computed server-side
-  minXtzOut: bigint; // wei (the XTZ floor the swap must clear)
-  router: EvmAddress;
-  swapCalldata: Hex; // route-agnostic swap calldata to run on `router`
-}
-
-// ABI arguments for SwapBridge.swapAndBridgePull
-export interface SwapBridgeArgs {
-  tokenIn: EvmAddress;
-  amountIn: bigint;
-  minXtzOut: bigint;
-  recipientTz1: Tz1Address;
-  router: EvmAddress;
-  swapCalldata: Hex;
-}
-
-// Result of buildSwapBridgeBatch: the swap+bridge ops plus the allowance facts behind them.
-// `ops` are UNTAGGED TransferParams ([reset?, approve?, swapAndBridgePull]); the consumer appends its own
-// operation(s) and passes the combined list through buildBatchTransaction to tag + gas-guard the group.
-export interface SwapBridgeBatch {
-  ops: TransferParams[];
-  alias: EvmAddress; // the buyer tz1's EVM alias (pays the input token)
-  allowance: bigint; // current alias->SwapBridge allowance for the pay token
-  approvePrepended: boolean; // a scoped approve was added (allowance was short)
-  resetPrepended: boolean; // an approve(0) reset was added first (USDT-style guard over a non-zero allowance)
+export interface SwapResponse {
+  srcAmount: string; // amountIn to pay/approve  (was SwapParams.input)
+  dstAmount: string; // output amount            (was SwapParams.output)
+  tx: SwapTx; // router calldata          (replaces hops)
 }
