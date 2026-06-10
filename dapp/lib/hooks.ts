@@ -66,7 +66,8 @@ const REF_XTZ_WEI = (REF_XTZ_MUTEZ * 10n ** 12n).toString();
 const QUOTE_ADDR = '0x000000000000000000000000000000000000dEaD'; // placeholder for keyless rate quotes
 
 export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string | null) {
-  const [currency, setCurrency] = useState<string>(''); // '' until tokens load, then first token; 'XTZ' = no conversion
+  const currency = useUi((s) => s.currency); // global — shared with the buy modal
+  const setCurrency = useUi((s) => s.setCurrency);
   const [rate, setRate] = useState<bigint | null>(null); // token base units per 1 XTZ
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);

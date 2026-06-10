@@ -147,7 +147,6 @@ export function BuyerPanel() {
       {sel && (
         <BuyModal
           listing={sel}
-          initialCurrency={currency}
           onClose={() => {
             setSel(null);
             void refresh();

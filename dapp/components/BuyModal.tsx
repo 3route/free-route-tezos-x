@@ -5,7 +5,6 @@ import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
 import { useBalances, useTokens } from '@/lib/hooks';
 import { buildBuyBatch, sendChunked, type BuyIntent } from '@/lib/ops';
-import type { ThreeRouteToken } from '@/lib/sdk';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
@@ -34,13 +33,17 @@ const SLIPPAGES = [
 const MIN_SLIPPAGE_BPS = 5; // 0.05%
 const MAX_SLIPPAGE_BPS = 4900; // 49%
 
-export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listing; initialCurrency?: string; onClose: () => void }) {
+export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () => void }) {
   const { tezos, michelsonAddress, aliasAddress } = useWallet();
   const refresh = useUi((s) => s.refresh);
   const { payTokens } = useTokens();
   const { erc } = useBalances(aliasAddress, michelsonAddress, payTokens);
 
-  const [token, setToken] = useState<ThreeRouteToken | null>(null);
+  // selected pay-token comes from the GLOBAL currency (shared with the listing switcher); fall back to
+  // the first token when the listing is in XTZ-only mode.
+  const currency = useUi((s) => s.currency);
+  const setCurrency = useUi((s) => s.setCurrency);
+  const token = payTokens.find((t) => t.address === currency) ?? payTokens[0] ?? null;
   const slippageBps = useUi((s) => s.slippageBps); // global slippage (shared with the listing cards)
   const setSlippageBps = useUi((s) => s.setSlippageBps);
   // raw % text for the custom field ('' = a preset is active); pre-fill if the global value isn't a preset
@@ -54,10 +57,6 @@ export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listi
   const [err, setErr] = useState<string | null>(null);
 
   const priceMutez = Number(listing.priceMutez);
-
-  useEffect(() => {
-    if (!token && payTokens.length) setToken(payTokens.find((t) => t.address === initialCurrency) ?? payTokens[0]);
-  }, [payTokens, token, initialCurrency]);
 
   // (re)quote whenever the pay token or slippage changes
   useEffect(() => {
@@ -111,7 +110,7 @@ export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listi
 
   return (
     <div className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4" onClick={onClose}>
-      <div className="card w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* header */}
         <div className="mb-4 flex items-center gap-3">
           <div
@@ -136,7 +135,7 @@ export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listi
           {payTokens.map((t) => (
             <button
               key={t.address}
-              onClick={() => setToken(t)}
+              onClick={() => setCurrency(t.address)}
               className={`rounded-xl border px-3 py-2 text-left transition ${
                 token?.address === t.address ? 'border-accent bg-accent/10' : 'border-edge hover:bg-white/5'
               }`}
