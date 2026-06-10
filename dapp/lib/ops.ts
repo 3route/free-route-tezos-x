@@ -85,8 +85,14 @@ export async function buildBuyBatch(
   slippageBps: number,
 ): Promise<{ ops: ParamsWithKind[]; intent: BuyIntent; quote: SwapResponse }> {
   const alias = tzToAlias(buyerTz1);
-  const targetWei = ((BigInt(ask.priceMutez) * 10n ** 12n * BigInt(10000 + slippageBps)) / 10000n).toString();
-  const quote = await threeRoute.getSwap(payToken.address, NATIVE_XTZ, targetWei, alias, alias, slippageBps / 100);
+  // The server sets the on-chain floor minOut = target × (1 − slippage). We need minOut ≥ the NFT price
+  // (else fulfill_ask reverts), so target = price / (1 − slippage), rounded UP (ceil) so minOut never lands
+  // a wei below price (the wei→mutez bridge floors, and 1 wei short would drop a whole mutez). Guard slip < 100%.
+  const bps = Math.min(slippageBps, 9900);
+  const priceWei = BigInt(ask.priceMutez) * 10n ** 12n;
+  const denom = BigInt(10000 - bps);
+  const targetWei = ((priceWei * 10000n + denom - 1n) / denom).toString();
+  const quote = await threeRoute.getSwap(payToken.address, NATIVE_XTZ, targetWei, alias, alias, bps / 100);
 
   // swap: call_evm(router, swap, calldata-minus-selector) — output native XTZ to the alias (auto-forwards to tz1)
   const swapOp = buildCallEvm(CFG.gateway, quote.tx.to, SWAP_SIG, quote.tx.data.slice(10));

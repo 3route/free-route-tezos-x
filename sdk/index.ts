@@ -48,9 +48,15 @@ if (!inputToken) throw new Error(`Input token not found: ${inputTokenSymbol}`);
 // (outputToken is native XTZ — addressed by the NATIVE_XTZ sentinel; no registry entry needed)
 
 // Value conversion. XTZ is 6-dec mutez on Michelson but 18-dec wei on the EVM side.
-const requiredAmountWithSlippage = requiredAmount * (1 + slippage);
 const rawOutputMutez = parseUnits(requiredAmount.toString(), 6).toString(); // fulfill amount + ask price
-const exactOutTargetWei = parseUnits(requiredAmountWithSlippage.toString(), 18).toString(); // exact-out target (EVM)
+// The server sets the on-chain floor minOut = target × (1 − slippage). We need minOut ≥ the price
+// (else fulfill_ask reverts), so target = price / (1 − slippage), rounded UP (ceil) in bigint so minOut
+// never lands a wei below price (the wei→mutez bridge floors). NOT price × (1 + slippage) — that gives
+// minOut = price × (1 − slippage²) < price.
+const slipBps = Math.round(slippage * 10000); // 0.02 -> 200
+const denom = BigInt(10000 - slipBps);
+const priceWei = parseUnits(requiredAmount.toString(), 18);
+const exactOutTargetWei = ((priceWei * 10000n + denom - 1n) / denom).toString(); // ceil(price / (1 - slip))
 
 // Exact-out swap: inputToken -> native XTZ, output sent to the alias (which auto-forwards to tz1).
 const [swap, objktContract] = await Promise.all([
