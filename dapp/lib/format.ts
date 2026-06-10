@@ -11,6 +11,20 @@ export function fmtUnits(raw: bigint | string | number, decimals: number, maxFra
 
 export const mutezToXtz = (mutez: bigint | string | number, maxFrac = 6): string => fmtUnits(mutez, 6, maxFrac);
 
+// Significant-figure formatting — keeps small values readable instead of rounding to "0"
+// (e.g. 0.00000185 VNXAU rather than 0.0000). `sig` = significant digits to keep.
+export function fmtSig(raw: bigint | string | number, decimals: number, sig = 4): string {
+  const v = typeof raw === 'bigint' ? raw : BigInt(raw);
+  if (v === 0n) return '0';
+  const num = Number(v) / 10 ** decimals;
+  if (!isFinite(num) || num === 0) return '0';
+  const exp = Math.floor(Math.log10(Math.abs(num)));
+  const dec = Math.min(18, Math.max(0, sig - 1 - exp));
+  let out = num.toFixed(dec);
+  if (out.includes('.')) out = out.replace(/0+$/, '').replace(/\.$/, '');
+  return out;
+}
+
 export function short(addr: string, n = 6): string {
   return addr.length > 2 * n ? `${addr.slice(0, n)}…${addr.slice(-4)}` : addr;
 }

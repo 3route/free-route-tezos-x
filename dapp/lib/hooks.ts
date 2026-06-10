@@ -4,6 +4,7 @@ import { NATIVE_XTZ, threeRoute } from './sdk';
 import type { ThreeRouteToken } from './sdk';
 import { fetchErc20Balance, fetchListings, fetchXtzBalance, type Listing } from './tzkt';
 import { useUi } from './ui';
+import { fmtSig } from './format';
 
 // 3route token registry (payment options live here).
 export function useTokens() {
@@ -99,7 +100,15 @@ export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string 
     return (BigInt(priceMutez) * rate) / REF_XTZ_MUTEZ;
   };
 
-  return { currency, setCurrency, token, rate, convert, updatedAt, error };
+  // bidirectional rate label: "1 XTZ ≈ x SYM · 1 SYM ≈ y XTZ"
+  let rateLabel: string | null = null;
+  if (token && rate !== null && rate > 0n) {
+    const xtzToToken = fmtSig(rate, token.decimals, 4); // SYM per 1 XTZ
+    const tokenToXtzMutez = (REF_XTZ_MUTEZ * 10n ** BigInt(token.decimals)) / rate; // mutez per 1 SYM
+    rateLabel = `1 XTZ ≈ ${xtzToToken} ${token.symbol} · 1 ${token.symbol} ≈ ${fmtSig(tokenToXtzMutez, 6, 4)} XTZ`;
+  }
+
+  return { currency, setCurrency, token, rate, convert, rateLabel, updatedAt, error };
 }
 
 // Active XTZ-priced listings for the test FA2.

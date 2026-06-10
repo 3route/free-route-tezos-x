@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useListings, usePriceCurrency, useTokens } from '@/lib/hooks';
 import { useWallet } from '@/lib/wallet';
-import { fmtUnits, mutezToXtz, short } from '@/lib/format';
+import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { BuyModal } from './BuyModal';
 import type { Listing } from '@/lib/tzkt';
@@ -11,13 +11,13 @@ export function BuyerPanel() {
   const { listings, loading, refresh } = useListings();
   const { connected, alias } = useWallet();
   const { payTokens } = useTokens();
-  const { currency, setCurrency, token, convert, updatedAt, error } = usePriceCurrency(payTokens, alias);
+  const { currency, setCurrency, token, convert, rateLabel, updatedAt, error } = usePriceCurrency(payTokens, alias);
   const [sel, setSel] = useState<Listing | null>(null);
 
-  // tick so the "updated Ns ago" label stays fresh
+  // tick every second so the "updated Ns ago" label stays fresh
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 5000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
   const ago = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : null;
@@ -54,7 +54,8 @@ export function BuyerPanel() {
               <span className="text-rose-400">rate unavailable</span>
             ) : (
               <>
-                rate via 3route · auto-refresh 30s{ago !== null ? ` · updated ${ago}s ago` : ' · …'}
+                {rateLabel ? <span className="text-slate-400">{rateLabel}</span> : 'quoting…'} · via 3route ·
+                auto-refresh 30s{ago !== null ? ` · updated ${ago}s ago` : ''}
               </>
             )}
           </span>
@@ -90,7 +91,7 @@ export function BuyerPanel() {
                 <div className="mt-2">
                   <div className="flex items-baseline gap-1">
                     <span className="text-lg font-semibold">
-                      {inToken === null ? '…' : `≈ ${fmtUnits(inToken, token.decimals, 4)}`}
+                      {inToken === null ? '…' : `≈ ${fmtSig(inToken, token.decimals, 4)}`}
                     </span>
                     <span className="text-xs text-slate-500">{token.symbol}</span>
                   </div>

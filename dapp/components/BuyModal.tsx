@@ -6,7 +6,7 @@ import { useUi } from '@/lib/ui';
 import { useBalances, useTokens } from '@/lib/hooks';
 import { buildBuyBatch, sendChunked, type BuyIntent } from '@/lib/ops';
 import type { ThreeRouteToken } from '@/lib/sdk';
-import { fmtUnits, mutezToXtz, short } from '@/lib/format';
+import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
 import type { Listing } from '@/lib/tzkt';
@@ -116,7 +116,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
               }`}
             >
               <div className="text-sm font-medium">{t.symbol}</div>
-              <div className="font-mono text-[11px] text-slate-500">{fmtUnits(erc[t.address] ?? 0n, t.decimals, 3)}</div>
+              <div className="font-mono text-[11px] text-slate-500">{fmtSig(erc[t.address] ?? 0n, t.decimals, 3)}</div>
             </button>
           ))}
         </div>
@@ -147,7 +147,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">You pay</span>
                 <span className="font-mono">
-                  ≤ {fmtUnits(intent.payAmount, token.decimals, 6)} {token.symbol}
+                  ≤ {fmtSig(intent.payAmount, token.decimals, 6)} {token.symbol}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -177,7 +177,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
               </div>
               {!enough && (
                 <div className="mt-1 text-xs text-amber-400">
-                  Alias balance ({fmtUnits(bal, token.decimals, 4)} {token.symbol}) is below the required amount.
+                  Alias balance ({fmtSig(bal, token.decimals, 4)} {token.symbol}) is below the required amount.
                 </div>
               )}
             </div>

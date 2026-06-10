@@ -2,7 +2,7 @@
 import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
 import { useBalances, useTokens } from '@/lib/hooks';
-import { fmtUnits, mutezToXtz, short } from '@/lib/format';
+import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { CFG } from '@/lib/config';
 
 export function Header() {
@@ -47,7 +47,7 @@ export function Header() {
               {payTokens.map((t) => (
                 <span key={t.address} className="chip" title={`alias ${t.symbol}`}>
                   <span className="text-slate-500">{t.symbol}</span>
-                  <span className="font-mono">{erc[t.address] === undefined ? '…' : fmtUnits(erc[t.address] ?? 0n, t.decimals, 3)}</span>
+                  <span className="font-mono">{erc[t.address] === undefined ? '…' : fmtSig(erc[t.address] ?? 0n, t.decimals, 3)}</span>
                 </span>
               ))}
               {loading && <span className="text-[11px] text-slate-600">refreshing…</span>}
