@@ -19,7 +19,7 @@ const SORTS: SelectOption<SortKey>[] = [
 
 export function BuyerPanel() {
   const { listings, loading, refresh } = useListings();
-  const { connected, aliasAddress } = useWallet();
+  const { connected, aliasAddress, connect } = useWallet();
   const { payTokens } = useTokens();
   const { currency, setCurrency, token, convert, rateLabel, updatedAt, error } = usePriceCurrency(payTokens, aliasAddress);
   const [sel, setSel] = useState<Listing | null>(null);
@@ -121,28 +121,23 @@ export function BuyerPanel() {
                 #{short(l.tokenId, 5)} · ask {l.askId}
               </div>
 
-              {/* fixed-height price area so long converted amounts don't make cards jump */}
-              <div className="mt-2 h-[2.75rem]">
-                {currency === 'XTZ' || !token ? (
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-semibold">{mutezToXtz(l.priceMutez, 4)}</span>
-                    <span className="text-xs text-slate-500">XTZ</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="truncate text-lg font-semibold leading-tight">
-                      {inToken === null ? '…' : `≈ ${fmtSig(inToken, token.decimals, 4)}`}
-                    </div>
-                    <div className="truncate text-[11px] text-slate-500">
-                      {token.symbol} · {mutezToXtz(l.priceMutez, 4)} XTZ
-                    </div>
-                  </>
-                )}
+              {/* card body shows the (short, stable) XTZ price; what you pay in the chosen token goes on the Buy button */}
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-lg font-semibold">{mutezToXtz(l.priceMutez, 4)}</span>
+                <span className="text-xs text-slate-500">XTZ</span>
               </div>
 
               <div className="mt-auto pt-2 text-[11px] text-slate-600">seller {short(l.seller, 5)}</div>
-              <button className="btn-primary mt-2" disabled={!connected} onClick={() => setSel(l)}>
-                Buy
+              <button
+                className="btn-primary mt-2 flex-col gap-0 !py-2 leading-tight"
+                onClick={() => (connected ? setSel(l) : void connect())}
+              >
+                <span>Buy</span>
+                {token && currency !== 'XTZ' && (
+                  <span className="max-w-full truncate text-[11px] font-normal text-white/85">
+                    ≈ {inToken === null ? '…' : fmtSig(inToken, token.decimals, 3)} {token.symbol}
+                  </span>
+                )}
               </button>
             </div>
           );
