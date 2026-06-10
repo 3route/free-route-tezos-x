@@ -13,7 +13,10 @@ export function useTokens() {
   useEffect(() => {
     threeRoute
       .getTokens()
-      .then(setTokens)
+      // stable, deterministic order — the server returns tokens in an arbitrary (map) order that
+      // varies per fetch, and each useTokens() instance fetches independently. Sort by symbol so the
+      // list looks identical everywhere and across reloads.
+      .then((t) => setTokens([...t].sort((a, b) => a.symbol.localeCompare(b.symbol))))
       .catch((e: Error) => setError(e.message));
   }, []);
   // payment/quote tokens = real ERC20s: drop the native-XTZ sentinel and any plain "XTZ" registry entry
