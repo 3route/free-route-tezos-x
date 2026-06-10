@@ -6,6 +6,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "setup": "tsx scripts/setup.ts",
+    "reset": "tsx scripts/reset.ts",
     "example": "tsx sdk/index.ts"
   },
   "dependencies": {
