@@ -46,8 +46,8 @@ export async function fetchErc20Balance(token: string, owner: string): Promise<b
   return c.balanceOf(owner);
 }
 
-export async function fetchXtzBalance(tz1: string): Promise<bigint> {
-  const b = await fetch(`${CFG.tezRpc}/chains/main/blocks/head/context/contracts/${tz1}/balance`).then((r) => r.json());
+export async function fetchXtzBalance(michelsonAddress: string): Promise<bigint> {
+  const b = await fetch(`${CFG.tezRpc}/chains/main/blocks/head/context/contracts/${michelsonAddress}/balance`).then((r) => r.json());
   return BigInt(b as string);
 }
 
@@ -60,9 +60,9 @@ export interface OwnedToken {
   tokenId: string;
 }
 
-// Tokens from the test FA2 currently owned by `tz1` (ledger bigmap: token_id -> owner).
-export async function fetchOwned(tz1: string): Promise<OwnedToken[]> {
-  const url = `${CFG.tzktApi}/bigmaps/${FA2_LEDGER_BIGMAP}/keys?value=${tz1}&active=true&limit=200&sort.desc=id`;
+// Tokens from the test FA2 currently owned by a Michelson address (ledger bigmap: token_id -> owner).
+export async function fetchOwned(michelsonAddress: string): Promise<OwnedToken[]> {
+  const url = `${CFG.tzktApi}/bigmaps/${FA2_LEDGER_BIGMAP}/keys?value=${michelsonAddress}&active=true&limit=200&sort.desc=id`;
   const keys = (await fetch(url).then((r) => r.json()).catch(() => [])) as Array<{ key: string }>;
   return keys.map((k) => ({ tokenId: k.key }));
 }

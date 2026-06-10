@@ -18,7 +18,7 @@ const DEFAULT_COUNT = 5;
 const DEFAULT_PRICE = 0.004;
 
 export function SellerPanel() {
-  const { connected, address, tezos } = useWallet();
+  const { connected, michelsonAddress, tezos } = useWallet();
   const refresh = useUi((s) => s.refresh);
   const [count, setCount] = useState(DEFAULT_COUNT);
   const [rows, setRows] = useState<Row[]>([]);
@@ -39,11 +39,11 @@ export function SellerPanel() {
   const setAllPrices = (priceXtz: number) => setRows((rs) => rs.map((r) => ({ ...r, priceXtz })));
 
   async function mintAndList() {
-    if (!tezos || !address) return;
+    if (!tezos || !michelsonAddress) return;
     setBusy(true);
     try {
       const items: SellerItem[] = rows.map((r) => ({ tokenId: r.tokenId, priceMutez: Math.round(r.priceXtz * 1e6) }));
-      const ops = buildMintListOps(address, items);
+      const ops = buildMintListOps(michelsonAddress, items);
       log.pending(`Minting ${rows.length} NFTs and listing them on objkt…`);
       const hashes = await sendChunked(tezos, ops, (h, i, t) => log.ok(`batch ${i}/${t} confirmed`, h));
       log.ok(`Collection live: ${rows.length} NFTs minted & listed`, hashes.join('  '));

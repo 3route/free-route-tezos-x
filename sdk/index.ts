@@ -3,8 +3,8 @@
 //   KEPT 1:1 : the whole flow; objkt fulfill_ask via typed `objktContract.methodsObject.fulfill_ask(...)`;
 //              batch().with([...]).send() + confirmation(1); parseUnits; the config object.
 //   CHANGED  : 3route is EVM here -> the swap op is a `call_evm` to the router (not a Michelson contract call);
-//              swap output goes to the EVM alias (auto-forwards to tz1) rather than directly to userAddress.
-//   ADDED    : tz1->alias resolver; mutez(6)<->wei(18) split for XTZ; RpcForger + pinned fees (previewnet).
+//              swap output goes to the EVM alias (auto-forwards to the Michelson address) rather than to userAddress.
+//   ADDED    : Michelson-address->alias resolver; mutez(6)<->wei(18) split for XTZ; RpcForger + pinned fees (previewnet).
 import { readFileSync } from 'node:fs';
 import { InMemorySigner } from '@taquito/signer';
 import { MichelsonMap, OpKind, RpcForger, TezosToolkit } from '@taquito/taquito';
@@ -16,7 +16,7 @@ import { NATIVE_XTZ, SWAP_SIG, ThreeRouteApi, buildCallEvm, tzToAlias, wrapOpera
 const env = readEnvFile(new URL('../.env', import.meta.url));
 const config = {
   rpcUrl: 'https://michelson.previewnet.tezosx.nomadic-labs.com',
-  userSecret: env.BUYER_TZ1_SK as string,
+  userSecret: env.BUYER_MICHELSON_SK as string,
   gateway: 'KT18oDJJKXMKhfE1bSuAPGp92pYcwVDiqsPw', // Michelson->EVM gateway (replaces the gist's `freeRoute` Michelson contract)
   contracts: { objkt: (env.OBJKT_MARKETPLACE ?? 'KT1DzhZkEN8UZ6NkhGMDbgHh2W5zLqHDq4G7') as string },
   threeRouteApi: { baseUrl: process.env.RS_API ?? 'http://127.0.0.1:3000', chainId: 128064 },
@@ -38,8 +38,8 @@ tezosToolkit.setProvider({ signer });
 tezosToolkit.setForgerProvider(tezosToolkit.getFactory(RpcForger)()); // ADDED: previewnet rejects local forging
 const threeRouteApi = new ThreeRouteApi(config.threeRouteApi.baseUrl, config.threeRouteApi.chainId);
 const userAddress = await signer.publicKeyHash();
-const userAlias = tzToAlias(userAddress); // ADDED: EVM alias — the input ERC20 lives here, the swap runs as it
-console.log('User address:', userAddress, '| EVM alias:', userAlias);
+const userAliasAddress = tzToAlias(userAddress); // ADDED: EVM alias — the input ERC20 lives here, the swap runs as it
+console.log('User address:', userAddress, '| EVM alias:', userAliasAddress);
 
 const tokens = await threeRouteApi.getTokens();
 const tokensMap = new Map(tokens.map((t) => [t.symbol, t]));
@@ -58,9 +58,9 @@ const denom = BigInt(10000 - slipBps);
 const priceWei = parseUnits(requiredAmount.toString(), 18);
 const exactOutTargetWei = ((priceWei * 10000n + denom - 1n) / denom).toString(); // ceil(price / (1 - slip))
 
-// Exact-out swap: inputToken -> native XTZ, output sent to the alias (which auto-forwards to tz1).
+// Exact-out swap: inputToken -> native XTZ, output sent to the alias (which auto-forwards to the Michelson address).
 const [swap, objktContract] = await Promise.all([
-  threeRouteApi.getSwap(inputToken.address, NATIVE_XTZ, exactOutTargetWei, userAlias, userAlias, slippage * 100),
+  threeRouteApi.getSwap(inputToken.address, NATIVE_XTZ, exactOutTargetWei, userAliasAddress, userAliasAddress, slippage * 100),
   tezosToolkit.contract.at<ObjktContract>(config.contracts.objkt),
 ]);
 const rawInputAmount = swap.srcAmount; // amountIn to pay/approve
@@ -102,7 +102,7 @@ const batchOperation = await batch.send();
 await batchOperation.confirmation(1);
 console.log(`Operation sent: https://previewnet.tezosx.tzkt.io/${batchOperation.hash}`);
 
-// ADDED (demo): confirm the NFT landed on the buyer tz1 (small delay — the tzkt indexer lags the node)
+// ADDED (demo): confirm the NFT landed on the buyer's Michelson address (small delay — the tzkt indexer lags the node)
 await new Promise((r) => setTimeout(r, 8000));
 const ownerKeys = (await fetch(`https://api.previewnet.tezosx.tzkt.io/v1/bigmaps/442/keys?key=${process.env.TOKEN ?? ''}`).then((r) => r.json()).catch(() => [])) as Array<{ value?: string }>;
 if (process.env.TOKEN) console.log(`token ${process.env.TOKEN} owner: ${ownerKeys[0]?.value ?? '(none)'} ${ownerKeys[0]?.value === userAddress ? '✅ delivered to buyer' : ''}`);

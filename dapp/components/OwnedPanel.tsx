@@ -6,8 +6,8 @@ import { short } from '@/lib/format';
 import { CFG } from '@/lib/config';
 
 export function OwnedPanel() {
-  const { connected, address } = useWallet();
-  const { owned, loading, refresh } = useOwned(address);
+  const { connected, michelsonAddress } = useWallet();
+  const { owned, loading, refresh } = useOwned(michelsonAddress);
 
   if (!connected) {
     return <div className="card text-sm text-slate-500">Connect Temple to see the NFTs you own.</div>;

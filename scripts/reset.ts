@@ -25,12 +25,12 @@ const mk = (sk: string): TezosToolkit => {
   return tk;
 };
 
-const buyer = mk(need('BUYER_TZ1_SK'));
-const seller = mk(need('SELLER_TZ1_SK'));
-const buyerTz1 = await buyer.signer.publicKeyHash();
-const sellerTz1 = need('SELLER_TZ1');
-const signers: Record<string, TezosToolkit> = { [buyerTz1]: buyer, [sellerTz1]: seller };
-console.log(`buyer ${buyerTz1} · seller ${sellerTz1} · burn ${BURN}`);
+const buyer = mk(need('BUYER_MICHELSON_SK'));
+const seller = mk(need('SELLER_MICHELSON_SK'));
+const buyerMichelsonAddress = await buyer.signer.publicKeyHash();
+const sellerMichelsonAddress = need('SELLER_MICHELSON');
+const signers: Record<string, TezosToolkit> = { [buyerMichelsonAddress]: buyer, [sellerMichelsonAddress]: seller };
+console.log(`buyer ${buyerMichelsonAddress} · seller ${sellerMichelsonAddress} · burn ${BURN}`);
 
 // ---------------- 1) retract all active asks ----------------
 const asks = (await fetch(
@@ -55,25 +55,25 @@ for (const [creator, askIds] of byCreator) {
     ...mkt.methods.retract_ask!(Number(id)).toTransferParams({ gasLimit: 250_000, storageLimit: 100, fee: 20_000 }),
   }));
   const op = await tk.contract.batch().with(ops).send();
-  console.log(`  retract ${askIds.length} asks by ${creator === buyerTz1 ? 'buyer' : 'seller'}: ${op.hash}`);
+  console.log(`  retract ${askIds.length} asks by ${creator === buyerMichelsonAddress ? 'buyer' : 'seller'}: ${op.hash}`);
   await op.confirmation();
 }
 
 // ---------------- 2) burn all owned test NFTs ----------------
-async function ownedBy(tz1: string): Promise<string[]> {
-  const keys = (await fetch(`${TZKT}/bigmaps/${LEDGER}/keys?value=${tz1}&active=true&limit=200&select=key`).then((r) => r.json())) as string[];
+async function ownedBy(michelsonAddress: string): Promise<string[]> {
+  const keys = (await fetch(`${TZKT}/bigmaps/${LEDGER}/keys?value=${michelsonAddress}&active=true&limit=200&select=key`).then((r) => r.json())) as string[];
   return keys;
 }
-for (const [tz1, tk] of [[buyerTz1, buyer], [sellerTz1, seller]] as const) {
-  const tokenIds = await ownedBy(tz1);
+for (const [michelsonAddress, tk] of [[buyerMichelsonAddress, buyer], [sellerMichelsonAddress, seller]] as const) {
+  const tokenIds = await ownedBy(michelsonAddress);
   if (!tokenIds.length) {
-    console.log(`\n${tz1 === buyerTz1 ? 'buyer' : 'seller'} owns no test NFTs`);
+    console.log(`\n${michelsonAddress === buyerMichelsonAddress ? 'buyer' : 'seller'} owns no test NFTs`);
     continue;
   }
   const fa2 = await tk.contract.at(FA2);
   const txs = tokenIds.map((token_id) => ({ to_: BURN, token_id, amount: '1' }));
-  const sent = await fa2.methodsObject.transfer!([{ from_: tz1, txs }]).send({ gasLimit: 1_500_000, storageLimit: 3_000, fee: 150_000 });
-  console.log(`\nburn ${tokenIds.length} NFTs from ${tz1 === buyerTz1 ? 'buyer' : 'seller'} (${tokenIds.join(', ')}): ${sent.hash}`);
+  const sent = await fa2.methodsObject.transfer!([{ from_: michelsonAddress, txs }]).send({ gasLimit: 1_500_000, storageLimit: 3_000, fee: 150_000 });
+  console.log(`\nburn ${tokenIds.length} NFTs from ${michelsonAddress === buyerMichelsonAddress ? 'buyer' : 'seller'} (${tokenIds.join(', ')}): ${sent.hash}`);
   await sent.confirmation();
 }
 

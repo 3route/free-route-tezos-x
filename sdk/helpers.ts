@@ -1,5 +1,5 @@
-// helpers.ts — mirrors the gist's helpers (API client + in-batch approve wrapper). Plus a tz1->alias
-// resolver and a call_evm builder (needed because on Tezos X the 3route router is an EVM contract).
+// helpers.ts — mirrors the gist's helpers (API client + in-batch approve wrapper). Plus a Michelson-address
+// ->alias resolver and a call_evm builder (needed because on Tezos X the 3route router is an EVM contract).
 //   KEPT 1:1 : the FreeRouteApi class shape (getTokens / getSwap / makeRequest); the approve-wrap pattern.
 //   CHANGED  : Michelson FA12/FA2 approve -> EVM ERC20 approve via call_evm; getSwapForParams(hops) -> getSwap(1inch).
 //   REMOVED  : mapHopToFreeRouteV4ContractHop (no Michelson hops).
@@ -7,7 +7,7 @@
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind, TransferParams } from '@taquito/taquito';
 import { AbiCoder, getAddress, keccak256, toUtf8Bytes } from 'ethers';
-import type { EvmAddress, Hex, SwapResponse, ThreeRouteToken, Tz1Address } from './types.js';
+import type { EvmAddress, Hex, MichelsonAddress, SwapResponse, ThreeRouteToken } from './types.js';
 
 // 1inch native-token sentinel — pass as `dst` to receive native XTZ.
 export const NATIVE_XTZ: EvmAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
@@ -45,8 +45,8 @@ export class ThreeRouteApi {
   }
 }
 
-// tz1 -> EVM alias (one-way). ADDED: the input ERC20 lives on the alias and the swap runs as it.
-export const tzToAlias = (tz1: Tz1Address): EvmAddress => getAddress('0x' + keccak256(toUtf8Bytes(tz1)).slice(2, 42));
+// Michelson address -> EVM alias (one-way). ADDED: the input ERC20 lives on the alias and the swap runs as it.
+export const tzToAlias = (michelsonAddress: MichelsonAddress): EvmAddress => getAddress('0x' + keccak256(toUtf8Bytes(michelsonAddress)).slice(2, 42));
 
 // Michelson->EVM gateway %call_evm(dest, sig, abiargs, callback=None) — wraps an EVM call as a Tezos op.
 // Replaces the gist's `freeRouteContract.methodsObject.execute(...).toTransferParams()` (Michelson-native there).

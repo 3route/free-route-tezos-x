@@ -8,7 +8,7 @@ export const CFG = {
   objkt: process.env.NEXT_PUBLIC_OBJKT ?? 'KT1DzhZkEN8UZ6NkhGMDbgHh2W5zLqHDq4G7',
   fa2: process.env.NEXT_PUBLIC_FA2 ?? 'KT1Mv4XGEJCvaqY8YmkU4NgDzQme5zwzSbCi',
   // ERC20 metadata standard; XTZ shown with 6 dec (mutez). 3route reports decimals per token too.
-  explorer: 'https://previewnet.tezosx.tzkt.io', // tzkt — Tezos (tz1/KT1) side
+  explorer: 'https://previewnet.tezosx.tzkt.io', // tzkt — Michelson side (tz/KT addresses)
   evmExplorer: process.env.NEXT_PUBLIC_EVM_EXPLORER ?? 'https://blockscout.previewnet.tezosx.nomadic-labs.com', // Blockscout — EVM (0x) side
 } as const;
 

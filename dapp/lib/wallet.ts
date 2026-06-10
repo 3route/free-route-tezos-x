@@ -8,8 +8,8 @@ import { log } from './log';
 
 interface WalletState {
   connected: boolean;
-  address: string | null; // buyer/seller tz1
-  alias: string | null; // its derived EVM alias (where ERC20s live)
+  michelsonAddress: string | null; // buyer/seller Michelson address (tz...)
+  aliasAddress: string | null; // its derived EVM alias address (where ERC20s live)
   tezos: TezosToolkit | null;
   wallet: BeaconWallet | null;
   connecting: boolean;
@@ -25,16 +25,16 @@ const makeWallet = (): BeaconWallet =>
     network: { type: 'custom' as never, name: NETWORK_NAME, rpcUrl: CFG.tezRpc },
   });
 
-const bind = (wallet: BeaconWallet, address: string) => {
+const bind = (wallet: BeaconWallet, michelsonAddress: string) => {
   const tezos = new TezosToolkit(CFG.tezRpc);
   tezos.setWalletProvider(wallet);
-  return { connected: true, address, alias: tzToAlias(address), tezos, wallet, connecting: false };
+  return { connected: true, michelsonAddress, aliasAddress: tzToAlias(michelsonAddress), tezos, wallet, connecting: false };
 };
 
 export const useWallet = create<WalletState>((set, get) => ({
   connected: false,
-  address: null,
-  alias: null,
+  michelsonAddress: null,
+  aliasAddress: null,
   tezos: null,
   wallet: null,
   connecting: false,
@@ -59,9 +59,9 @@ export const useWallet = create<WalletState>((set, get) => ({
     try {
       const wallet = makeWallet();
       await wallet.requestPermissions();
-      const address = await wallet.getPKH();
-      set(bind(wallet, address));
-      log.ok(`Wallet connected: ${address}`, `alias ${tzToAlias(address)}`);
+      const michelsonAddress = await wallet.getPKH();
+      set(bind(wallet, michelsonAddress));
+      log.ok(`Wallet connected: ${michelsonAddress}`, `alias ${tzToAlias(michelsonAddress)}`);
     } catch (e) {
       set({ connecting: false });
       log.err('Wallet connection failed', (e as Error).message);
@@ -74,7 +74,7 @@ export const useWallet = create<WalletState>((set, get) => ({
     try {
       if (w) await w.clearActiveAccount();
     } finally {
-      set({ connected: false, address: null, alias: null, tezos: null, wallet: null });
+      set({ connected: false, michelsonAddress: null, aliasAddress: null, tezos: null, wallet: null });
       log.info('Wallet disconnected');
     }
   },

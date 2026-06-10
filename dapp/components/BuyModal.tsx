@@ -12,7 +12,7 @@ import { log } from '@/lib/log';
 import { CFG } from '@/lib/config';
 import type { Listing } from '@/lib/tzkt';
 
-// address -> explorer link. Tezos (tz1/KT1) -> tzkt; EVM (0x) -> Blockscout.
+// address -> explorer link. Michelson side (tz/KT) -> tzkt; EVM (0x) -> Blockscout.
 function Addr({ value, len = 5 }: { value: string; len?: number }) {
   if (!value) return null;
   const isTezos = value.startsWith('tz') || value.startsWith('KT');
@@ -34,10 +34,10 @@ const SLIPPAGES = [
 ];
 
 export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () => void }) {
-  const { tezos, address, alias } = useWallet();
+  const { tezos, michelsonAddress, aliasAddress } = useWallet();
   const refresh = useUi((s) => s.refresh);
   const { payTokens } = useTokens();
-  const { erc } = useBalances(alias, address, payTokens);
+  const { erc } = useBalances(aliasAddress, michelsonAddress, payTokens);
 
   const [token, setToken] = useState<ThreeRouteToken | null>(null);
   const [slippageBps, setSlippageBps] = useState(200);
@@ -55,13 +55,13 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
 
   // (re)quote whenever the pay token or slippage changes
   useEffect(() => {
-    if (!tezos || !address || !token) return;
+    if (!tezos || !michelsonAddress || !token) return;
     let cancelled = false;
     setQuoting(true);
     setErr(null);
     setOps(null); // never allow sending stale ops mid-requote (Buy is also disabled while quoting)
     // keep the previous `intent` on screen (stale-while-revalidate) so the panel doesn't collapse/jump
-    buildBuyBatch(tezos, address, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
+    buildBuyBatch(tezos, michelsonAddress, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
       .then(({ ops: o, intent: it }) => {
         if (!cancelled) {
           setOps(o);
@@ -78,7 +78,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     return () => {
       cancelled = true;
     };
-  }, [tezos, address, token, slippageBps, listing, priceMutez]);
+  }, [tezos, michelsonAddress, token, slippageBps, listing, priceMutez]);
 
   const bal = token ? erc[token.address] ?? 0n : 0n;
   const need = intent ? BigInt(intent.payAmount) : 0n;
@@ -91,7 +91,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     try {
       log.pending(`Buying ask#${listing.askId} with ${token.symbol}…`);
       const hashes = await sendChunked(tezos, ops, (h) => log.ok('operation confirmed', h));
-      log.ok(`Bought "${nftName(listing.tokenId)}" → delivered to your tz1`, hashes.join(' '));
+      log.ok(`Bought "${nftName(listing.tokenId)}" → delivered to your Michelson address`, hashes.join(' '));
       refresh();
       onClose();
     } catch (e) {
@@ -189,14 +189,14 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                 <span className="font-mono">{mutezToXtz(priceMutez, 6)} XTZ</span>
               </div>
               <div className="flex items-start justify-between">
-                <span className="text-slate-400">Change → your tz1</span>
+                <span className="text-slate-400">Change → your Michelson address</span>
                 <span className="text-right font-mono">
                   <span className="block">
                     ≈ {mutezToXtz(intent.changeMutez, 6)} XTZ{' '}
                     <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
                   </span>
                   <span className="block text-xs text-slate-500">
-                    ≥ 0, set on-chain · <Addr value={address ?? ''} len={6} />
+                    ≥ 0, set on-chain · <Addr value={michelsonAddress ?? ''} len={6} />
                   </span>
                 </span>
               </div>

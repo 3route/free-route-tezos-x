@@ -72,21 +72,20 @@ export interface BuyIntent {
   payAmount: string; // srcAmount, raw units of payToken — STRICT (calldata is exact-input)
   expectedOutMutez: number; // floor(dstAmount / 1e12) — expected XTZ out
   minOutMutez: number; // floor(dstAmountMin / 1e12) — guaranteed XTZ floor (== price after our sizing)
-  changeMutez: number; // expectedOut - price, returned to the buyer tz1 (>= 0)
+  changeMutez: number; // expectedOut - price, returned to the buyer's Michelson address (>= 0)
   slippageBps: number;
   router: string;
-  alias: string;
   steps: Array<{ kind: string; detail: string }>;
 }
 
 export async function buildBuyBatch(
   tezos: TezosToolkit,
-  buyerTz1: string,
+  buyerMichelsonAddress: string,
   ask: { askId: string; tokenId: string; priceMutez: number },
   payToken: ThreeRouteToken,
   slippageBps: number,
 ): Promise<{ ops: ParamsWithKind[]; intent: BuyIntent; quote: SwapResponse }> {
-  const alias = tzToAlias(buyerTz1);
+  const aliasAddress = tzToAlias(buyerMichelsonAddress);
   // The server sets the on-chain floor minOut = target × (1 − slippage). We need minOut ≥ the NFT price
   // (else fulfill_ask reverts), so target = price / (1 − slippage), rounded UP (ceil) so minOut never lands
   // a wei below price (the wei→mutez bridge floors, and 1 wei short would drop a whole mutez). Guard slip < 100%.
@@ -94,9 +93,9 @@ export async function buildBuyBatch(
   const priceWei = BigInt(ask.priceMutez) * 10n ** 12n;
   const denom = BigInt(10000 - bps);
   const targetWei = ((priceWei * 10000n + denom - 1n) / denom).toString();
-  const quote = await threeRoute.getSwap(payToken.address, NATIVE_XTZ, targetWei, alias, alias, bps / 100);
+  const quote = await threeRoute.getSwap(payToken.address, NATIVE_XTZ, targetWei, aliasAddress, aliasAddress, bps / 100);
 
-  // swap: call_evm(router, swap, calldata-minus-selector) — output native XTZ to the alias (auto-forwards to tz1)
+  // swap: call_evm(router, swap, calldata-minus-selector) — output native XTZ to the alias (auto-forwards to the Michelson address)
   const swapOp = buildCallEvm(CFG.gateway, quote.tx.to, SWAP_SIG, quote.tx.data.slice(10));
 
   // fulfill_ask (typed objkt contract) — paid by the bridged XTZ
@@ -134,10 +133,9 @@ export async function buildBuyBatch(
     changeMutez,
     slippageBps,
     router: quote.tx.to,
-    alias,
     steps: [
       { kind: 'approve', detail: `approve exactly ${payToken.symbol} to the 3route router` },
-      { kind: 'swap (call_evm)', detail: `${payToken.symbol} → native XTZ to your alias → auto-forwards to tz1` },
+      { kind: 'swap (call_evm)', detail: `${payToken.symbol} → native XTZ to your alias → auto-forwards to your Michelson address` },
       { kind: 'fulfill_ask', detail: `buy ask#${ask.askId}, pay ${ask.priceMutez / 1e6} XTZ` },
     ],
   };

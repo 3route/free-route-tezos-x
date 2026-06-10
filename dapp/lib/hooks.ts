@@ -30,27 +30,27 @@ export function useTokens() {
   return { tokens, payTokens, error };
 }
 
-// tz1 XTZ balance + alias ERC20 balances.
-export function useBalances(alias: string | null, tz1: string | null, payTokens: ThreeRouteToken[]) {
+// Michelson-address XTZ balance + alias ERC20 balances.
+export function useBalances(aliasAddress: string | null, michelsonAddress: string | null, payTokens: ThreeRouteToken[]) {
   const [xtz, setXtz] = useState<bigint | null>(null);
   const [erc, setErc] = useState<Record<string, bigint>>({});
   const [loading, setLoading] = useState(false);
   const bump = useUi((s) => s.bump);
 
   const refresh = useCallback(async () => {
-    if (!alias || !tz1) return;
+    if (!aliasAddress || !michelsonAddress) return;
     setLoading(true);
     try {
-      setXtz(await fetchXtzBalance(tz1).catch(() => 0n));
+      setXtz(await fetchXtzBalance(michelsonAddress).catch(() => 0n));
       const entries = await Promise.all(
-        payTokens.map(async (t) => [t.address, await fetchErc20Balance(t.address, alias).catch(() => 0n)] as const),
+        payTokens.map(async (t) => [t.address, await fetchErc20Balance(t.address, aliasAddress).catch(() => 0n)] as const),
       );
       setErc(Object.fromEntries(entries));
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alias, tz1, payTokens, bump]);
+  }, [aliasAddress, michelsonAddress, payTokens, bump]);
 
   useEffect(() => {
     void refresh();
@@ -137,24 +137,24 @@ export function useListings() {
   return { listings, loading, refresh };
 }
 
-// Tokens owned by the connected tz1.
-export function useOwned(tz1: string | null) {
+// Tokens owned by the connected Michelson address.
+export function useOwned(michelsonAddress: string | null) {
   const [owned, setOwned] = useState<OwnedToken[]>([]);
   const [loading, setLoading] = useState(false);
   const bump = useUi((s) => s.bump);
   const refresh = useCallback(async () => {
-    if (!tz1) {
+    if (!michelsonAddress) {
       setOwned([]);
       return;
     }
     setLoading(true);
     try {
-      setOwned(await fetchOwned(tz1));
+      setOwned(await fetchOwned(michelsonAddress));
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tz1, bump]);
+  }, [michelsonAddress, bump]);
   useEffect(() => {
     void refresh();
   }, [refresh]);

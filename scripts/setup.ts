@@ -49,17 +49,17 @@ const owner = async (id: number): Promise<string> => {
   return keys[0]?.value ?? '(none)';
 };
 
-const buyer = mk(need('BUYER_TZ1_SK'));
-const seller = mk(need('SELLER_TZ1_SK'));
-const buyerTz1 = await buyer.signer.publicKeyHash();
-const sellerTz1 = need('SELLER_TZ1');
-const alias = tzToAlias(buyerTz1);
-console.log(`buyer ${buyerTz1} (alias ${alias}) · seller ${sellerTz1}`);
+const buyer = mk(need('BUYER_MICHELSON_SK'));
+const seller = mk(need('SELLER_MICHELSON_SK'));
+const buyerMichelsonAddress = await buyer.signer.publicKeyHash();
+const sellerMichelsonAddress = need('SELLER_MICHELSON');
+const aliasAddress = tzToAlias(buyerMichelsonAddress);
+console.log(`buyer ${buyerMichelsonAddress} (alias ${aliasAddress}) · seller ${sellerMichelsonAddress}`);
 
 // 1) MINT a fresh token to the seller (FA2 `mint(owner, token_id)`), unless it already exists.
 if ((await owner(TOKEN)) === '(none)') {
   console.log(`mint token ${TOKEN} -> seller`);
-  await (await seller.contract.transfer({ to: FA2, amount: 0, parameter: { entrypoint: 'mint', value: m.pair(m.string(sellerTz1), m.int(TOKEN)) }, gasLimit: 200_000, storageLimit: 350, fee: 50_000 })).confirmation();
+  await (await seller.contract.transfer({ to: FA2, amount: 0, parameter: { entrypoint: 'mint', value: m.pair(m.string(sellerMichelsonAddress), m.int(TOKEN)) }, gasLimit: 200_000, storageLimit: 350, fee: 50_000 })).confirmation();
 } else {
   console.log(`token ${TOKEN} already exists — skip mint`);
 }
@@ -72,7 +72,7 @@ const askValue = m.pair(
   m.right(m.right(m.unit)), // currency = XTZ
   m.int(PRICE_MUTEZ), // price
   m.int(1), // editions
-  [{ prim: 'Elt', args: [m.string(sellerTz1), m.int(1000)] }] as unknown as MichelsonV1Expression, // shares: seller 100%
+  [{ prim: 'Elt', args: [m.string(sellerMichelsonAddress), m.int(1000)] }] as unknown as MichelsonV1Expression, // shares: seller 100%
   m.none, m.none, m.int(0), m.none,
 );
 await (await seller.contract.transfer({ to: OBJKT, amount: 0, parameter: { entrypoint: 'ask', value: askValue }, gasLimit: 1_500_000, storageLimit: 3_000, fee: 200_000 })).confirmation();
@@ -86,15 +86,15 @@ const provider = new ethers.JsonRpcProvider(EVM_RPC, undefined, { batchMaxCount:
 const erc20 = new ethers.Contract(payToken.address, ['function balanceOf(address) view returns (uint256)'], provider) as unknown as { balanceOf(a: string): Promise<bigint> };
 
 const targetWei = ((BigInt(PRICE_MUTEZ) * 10n ** 12n * (10000n + BigInt(SLIPPAGE_BPS))) / 10000n).toString(); // price x (1+slip), wei
-const buyQuote = await api.getSwap(payToken.address, NATIVE_XTZ, targetWei, alias, alias, SLIPPAGE_BPS / 100);
+const buyQuote = await api.getSwap(payToken.address, NATIVE_XTZ, targetWei, aliasAddress, aliasAddress, SLIPPAGE_BPS / 100);
 const needed = BigInt(buyQuote.srcAmount); // pay-token units the example will spend
-const have = await erc20.balanceOf(alias);
+const have = await erc20.balanceOf(aliasAddress);
 console.log(`alias ${PAY}: have ${have} · need ${needed} for this buy`);
 
 if (have < needed) {
   const fundMutez = Math.round(FUND_XTZ * 1e6);
   const fundWei = (BigInt(fundMutez) * 10n ** 12n).toString();
-  const q = new URLSearchParams({ src: NATIVE_XTZ, dst: payToken.address, amount: fundWei, from: alias, receiver: alias, slippage: '3' });
+  const q = new URLSearchParams({ src: NATIVE_XTZ, dst: payToken.address, amount: fundWei, from: aliasAddress, receiver: aliasAddress, slippage: '3' });
   const fundSwap = (await fetch(`${RS_API}/api/v6.1/${CHAIN_ID}/swap?${q}`).then((r) => r.json())) as { dstAmount: string; tx: { to: string; data: string } };
   console.log(`fund: swap ${FUND_XTZ} XTZ -> ~${fundSwap.dstAmount} ${PAY} units (router ${fundSwap.tx.to})`);
   await (await buyer.contract.transfer({
@@ -103,7 +103,7 @@ if (have < needed) {
     gasLimit: 500_000, storageLimit: 2_000, fee: 150_000,
   })).confirmation();
   await new Promise((r) => setTimeout(r, 4000));
-  console.log(`alias ${PAY} now = ${await erc20.balanceOf(alias)}`);
+  console.log(`alias ${PAY} now = ${await erc20.balanceOf(aliasAddress)}`);
 } else {
   console.log(`alias already funded — skip`);
 }

@@ -1,11 +1,11 @@
-// types.ts — mirrors the L1 gist's types, adapted for Tezos X (EVM-side 3route + tz1 alias).
+// types.ts — mirrors the L1 gist's types, adapted for Tezos X (EVM-side 3route + Michelson-address alias).
 //   KEPT 1:1 : ObjktContract / ObjktContractFulfillAskParams (objkt v4 fulfill_ask — same ABI).
 //   CHANGED  : FreeRouteV4Contract (Michelson execute) -> EVM router via call_evm (no Michelson contract);
 //              TezosToken (fa12/fa2/xtz union) -> EVM ERC20 token; SwapParams {input,output,hops} -> 1inch /swap response.
 //   REMOVED  : FA12Contract / FA2Contract / FreeRouteV4ContractHop (Michelson-only).
 import type { ContractAbstraction, ContractMethodObject, ContractProvider, Wallet, MichelsonMap } from '@taquito/taquito';
 
-export type Tz1Address = string;
+export type MichelsonAddress = string;
 export type EvmAddress = string;
 export type Hex = string;
 
