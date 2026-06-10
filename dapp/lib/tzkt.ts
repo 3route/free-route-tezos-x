@@ -1,0 +1,54 @@
+// Read-only chain queries (tzkt + EVM RPC). No keys, no signing.
+import { ethers } from 'ethers';
+import { CFG, FA2_LEDGER_BIGMAP } from './config';
+
+export interface Listing {
+  askId: string;
+  tokenId: string;
+  fa2: string;
+  priceMutez: string;
+  seller: string;
+}
+
+interface AskKey {
+  key: string;
+  value?: {
+    token: { token_id: string; address: string };
+    amount: string;
+    creator: string;
+    currency: Record<string, unknown>;
+  };
+}
+
+// Active XTZ-priced asks on the objkt marketplace for our test FA2.
+export async function fetchListings(): Promise<Listing[]> {
+  const url = `${CFG.tzktApi}/contracts/${CFG.objkt}/bigmaps/asks/keys?active=true&value.token.address=${CFG.fa2}&limit=200&sort.desc=id`;
+  const keys = (await fetch(url).then((r) => r.json()).catch(() => [])) as AskKey[];
+  return keys
+    .filter((k) => k.value && 'tez' in k.value.currency)
+    .map((k) => ({
+      askId: k.key,
+      tokenId: k.value!.token.token_id,
+      fa2: k.value!.token.address,
+      priceMutez: k.value!.amount,
+      seller: k.value!.creator,
+    }));
+}
+
+const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
+
+export async function fetchErc20Balance(token: string, owner: string): Promise<bigint> {
+  const provider = new ethers.JsonRpcProvider(CFG.evmRpc, undefined, { batchMaxCount: 1 });
+  const c = new ethers.Contract(token, ERC20_ABI, provider) as unknown as { balanceOf(a: string): Promise<bigint> };
+  return c.balanceOf(owner);
+}
+
+export async function fetchXtzBalance(tz1: string): Promise<bigint> {
+  const b = await fetch(`${CFG.tezRpc}/chains/main/blocks/head/context/contracts/${tz1}/balance`).then((r) => r.json());
+  return BigInt(b as string);
+}
+
+export async function fetchOwner(tokenId: string): Promise<string | null> {
+  const k = (await fetch(`${CFG.tzktApi}/bigmaps/${FA2_LEDGER_BIGMAP}/keys?key=${tokenId}`).then((r) => r.json()).catch(() => [])) as Array<{ value?: string }>;
+  return k[0]?.value ?? null;
+}
