@@ -12,19 +12,13 @@ import { log } from '@/lib/log';
 import { CFG } from '@/lib/config';
 import type { Listing } from '@/lib/tzkt';
 
-// address -> explorer link. tzkt only indexes Tezos addresses (tz1/KT1); EVM 0x addresses get no
-// tzkt page (400), so we render those as plain text with the full value on hover.
+// address -> explorer link. Tezos (tz1/KT1) -> tzkt; EVM (0x) -> Blockscout.
 function Addr({ value, len = 5 }: { value: string; len?: number }) {
   if (!value) return null;
   const isTezos = value.startsWith('tz') || value.startsWith('KT');
-  if (!isTezos)
-    return (
-      <span title={value} className="cursor-default">
-        {short(value, len)}
-      </span>
-    );
+  const href = isTezos ? `${CFG.explorer}/${value}` : `${CFG.evmExplorer}/address/${value}`;
   return (
-    <a href={`${CFG.explorer}/${value}`} target="_blank" rel="noreferrer" className="text-accent hover:underline" title={value}>
+    <a href={href} target="_blank" rel="noreferrer" className="text-accent hover:underline" title={value}>
       {short(value, len)}
     </a>
   );
