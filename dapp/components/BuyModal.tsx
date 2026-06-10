@@ -31,7 +31,6 @@ const SLIPPAGES = [
   { label: '0.5%', bps: 50 },
   { label: '1%', bps: 100 },
 ];
-const DEFAULT_SLIPPAGE_BPS = 50; // 0.5% — industry default (Uniswap/Pancake)
 const MIN_SLIPPAGE_BPS = 5; // 0.05%
 const MAX_SLIPPAGE_BPS = 4900; // 49%
 
@@ -42,8 +41,12 @@ export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listi
   const { erc } = useBalances(aliasAddress, michelsonAddress, payTokens);
 
   const [token, setToken] = useState<ThreeRouteToken | null>(null);
-  const [slippageBps, setSlippageBps] = useState(DEFAULT_SLIPPAGE_BPS);
-  const [customSlippage, setCustomSlippage] = useState(''); // raw % text for the custom field ('' = a preset is active)
+  const slippageBps = useUi((s) => s.slippageBps); // global slippage (shared with the listing cards)
+  const setSlippageBps = useUi((s) => s.setSlippageBps);
+  // raw % text for the custom field ('' = a preset is active); pre-fill if the global value isn't a preset
+  const [customSlippage, setCustomSlippage] = useState(() =>
+    SLIPPAGES.some((s) => s.bps === slippageBps) ? '' : String(slippageBps / 100),
+  );
   const [intent, setIntent] = useState<BuyIntent | null>(null);
   const [ops, setOps] = useState<ParamsWithKind[] | null>(null);
   const [quoting, setQuoting] = useState(false);

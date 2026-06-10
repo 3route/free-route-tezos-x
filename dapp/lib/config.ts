@@ -14,3 +14,4 @@ export const CFG = {
 
 export const FA2_LEDGER_BIGMAP = 442; // token_id -> owner (tzkt)
 export const NETWORK_NAME = 'Tezos X Previewnet';
+export const DEFAULT_SLIPPAGE_BPS = 50; // 0.5% — initial value for the global slippage state (Uniswap/Pancake default)

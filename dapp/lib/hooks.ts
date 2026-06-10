@@ -72,6 +72,7 @@ export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string 
   const [error, setError] = useState<string | null>(null);
   const token = payTokens.find((t) => t.address === currency) ?? null;
   const addr = refAddr || QUOTE_ADDR;
+  const slippageBps = useUi((s) => s.slippageBps); // global — keeps card amounts in sync with the buy
 
   // default to the first pay-token once the registry loads (runs once; user can switch / toggle to XTZ after)
   useEffect(() => {
@@ -105,10 +106,11 @@ export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string 
     };
   }, [token, addr]);
 
-  // listing price (mutez) -> selected token base units
+  // listing price (mutez) -> selected token base units, with the global slippage buffer applied
+  // (target = price / (1 - slip)) so the card amount matches what the buy will actually cost.
   const convert = (priceMutez: string | number): bigint | null => {
     if (!token || rate === null) return null;
-    return (BigInt(priceMutez) * rate) / REF_XTZ_MUTEZ;
+    return (BigInt(priceMutez) * rate * 10000n) / (REF_XTZ_MUTEZ * BigInt(10000 - slippageBps));
   };
 
   // bidirectional rate label: "1 XTZ ≈ x SYM · 1 SYM ≈ y XTZ"

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_SLIPPAGE_BPS } from './config';
 
 export type Mode = 'buyer' | 'seller' | 'owned';
 
@@ -7,6 +8,8 @@ interface UiState {
   setMode: (m: Mode) => void;
   bump: number; // increment to trigger a global data refresh (balances, listings)
   refresh: () => void;
+  slippageBps: number; // global slippage tolerance — used for card pay-amounts and the buy
+  setSlippageBps: (bps: number) => void;
 }
 
 export const useUi = create<UiState>((set) => ({
@@ -14,4 +17,6 @@ export const useUi = create<UiState>((set) => ({
   setMode: (mode) => set({ mode }),
   bump: 0,
   refresh: () => set((s) => ({ bump: s.bump + 1 })),
+  slippageBps: DEFAULT_SLIPPAGE_BPS,
+  setSlippageBps: (slippageBps) => set({ slippageBps }),
 }));
