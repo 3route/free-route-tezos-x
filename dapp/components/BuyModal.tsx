@@ -9,7 +9,28 @@ import type { ThreeRouteToken } from '@/lib/sdk';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
+import { CFG } from '@/lib/config';
 import type { Listing } from '@/lib/tzkt';
+
+// address -> explorer link. tzkt only indexes Tezos addresses (tz1/KT1); EVM 0x addresses get no
+// tzkt page (400), so we render those as plain text with the full value on hover.
+function Addr({ value, len = 5 }: { value: string; len?: number }) {
+  if (!value) return null;
+  const isTezos = value.startsWith('tz') || value.startsWith('KT');
+  if (!isTezos)
+    return (
+      <span title={value} className="cursor-default">
+        {short(value, len)}
+      </span>
+    );
+  return (
+    <a href={`${CFG.explorer}/${value}`} target="_blank" rel="noreferrer" className="text-accent hover:underline" title={value}>
+      {short(value, len)}
+    </a>
+  );
+}
+
+const Spinner = () => <div className="h-6 w-6 animate-spin rounded-full border-2 border-edge border-t-accent" />;
 
 const SLIPPAGES = [
   { label: '0.5%', bps: 50 },
@@ -44,8 +65,8 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     let cancelled = false;
     setQuoting(true);
     setErr(null);
-    setIntent(null);
-    setOps(null);
+    setOps(null); // never allow sending stale ops mid-requote (Buy is also disabled while quoting)
+    // keep the previous `intent` on screen (stale-while-revalidate) so the panel doesn't collapse/jump
     buildBuyBatch(tezos, address, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
       .then(({ ops: o, intent: it }) => {
         if (!cancelled) {
@@ -53,7 +74,12 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
           setIntent(it);
         }
       })
-      .catch((e: Error) => !cancelled && setErr(e.message))
+      .catch((e: Error) => {
+        if (!cancelled) {
+          setErr(e.message);
+          setIntent(null);
+        }
+      })
       .finally(() => !cancelled && setQuoting(false));
     return () => {
       cancelled = true;
@@ -139,11 +165,13 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
         <div className="rounded-xl border border-edge bg-ink/50 p-3 text-sm">
           <div className="mb-2 flex items-center justify-between">
             <span className="label">Intent</span>
-            {quoting && <span className="text-[11px] text-slate-500">quoting…</span>}
           </div>
-          {err && <div className="text-xs text-rose-400">{err}</div>}
-          {intent && token && (
-            <div className="space-y-2">
+          <div className="relative min-h-[15rem]">
+            {err && !intent && (
+              <div className="grid h-[15rem] place-items-center text-center text-xs text-rose-400">{err}</div>
+            )}
+            {intent && token && (
+            <div className={`space-y-2 transition-opacity ${quoting ? 'opacity-40' : 'opacity-100'}`}>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">
                   You pay <span className="text-[10px] uppercase tracking-wide text-slate-600">exact</span>
@@ -173,7 +201,9 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                     ≈ {mutezToXtz(intent.changeMutez, 6)} XTZ{' '}
                     <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
                   </span>
-                  <span className="block text-xs text-slate-500">≥ 0, set on-chain · {short(address ?? '', 6)}</span>
+                  <span className="block text-xs text-slate-500">
+                    ≥ 0, set on-chain · <Addr value={address ?? ''} len={6} />
+                  </span>
                 </span>
               </div>
               <div className="flex items-start justify-between">
@@ -184,7 +214,9 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Route</span>
-                <span className="font-mono text-xs">{token.symbol} → XTZ · 3route {short(intent.router, 5)}</span>
+                <span className="font-mono text-xs">
+                  {token.symbol} → XTZ · 3route <Addr value={intent.router} len={5} />
+                </span>
               </div>
               <div className="mt-2 border-t border-edge pt-2">
                 <div className="label mb-1">One signature · atomic op-group</div>
@@ -205,7 +237,13 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                 </div>
               )}
             </div>
-          )}
+            )}
+            {quoting && (
+              <div className="absolute inset-0 grid place-items-center">
+                <Spinner />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* actions */}
