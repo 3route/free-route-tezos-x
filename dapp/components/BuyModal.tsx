@@ -172,11 +172,18 @@ export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listi
                 placeholder="custom"
                 value={customSlippage}
                 onChange={(e) => {
-                  setCustomSlippage(e.target.value);
-                  const pct = Number(e.target.value);
-                  if (Number.isFinite(pct) && pct > 0) {
-                    setSlippageBps(Math.min(MAX_SLIPPAGE_BPS, Math.max(MIN_SLIPPAGE_BPS, Math.round(pct * 100))));
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    setCustomSlippage('');
+                    return;
                   }
+                  let pct = Number(raw);
+                  if (!Number.isFinite(pct) || pct < 0) return; // ignore non-numeric / negative
+                  const maxPct = MAX_SLIPPAGE_BPS / 100;
+                  // cap the entered value so you can't type beyond the allowed range
+                  const text = pct > maxPct ? ((pct = maxPct), String(maxPct)) : raw;
+                  setCustomSlippage(text);
+                  if (pct > 0) setSlippageBps(Math.max(MIN_SLIPPAGE_BPS, Math.round(pct * 100)));
                 }}
                 className="w-14 bg-transparent text-right outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
               />
