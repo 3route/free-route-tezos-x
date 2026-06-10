@@ -51,6 +51,7 @@ export function BuyerPanel() {
     return () => clearInterval(id);
   }, []);
   const ago = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : null;
+  const inSec = ago !== null ? Math.max(0, 30 - ago) : null; // countdown to the next rate refresh (30s)
 
   const currencies = ['XTZ', ...payTokens.map((t) => t.address)];
   const symbolOf = (c: string) => (c === 'XTZ' ? 'XTZ' : payTokens.find((t) => t.address === c)?.symbol ?? '?');
@@ -88,8 +89,8 @@ export function BuyerPanel() {
               <span className="text-rose-400">rate unavailable</span>
             ) : (
               <>
-                {rateLabel ? <span className="text-slate-400">{rateLabel}</span> : 'quoting…'} · via 3route ·
-                auto-refresh 30s{ago !== null ? ` · updated ${ago}s ago` : ''}
+                {rateLabel ? <span className="text-slate-400">{rateLabel}</span> : 'quoting…'} · via 3route
+                {inSec !== null ? ` · updating in ${inSec}s` : ''}
               </>
             )}
           </span>
