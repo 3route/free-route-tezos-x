@@ -27,11 +27,13 @@ function Addr({ value, len = 5 }: { value: string; len?: number }) {
 const Spinner = () => <div className="h-6 w-6 animate-spin rounded-full border-2 border-edge border-t-accent" />;
 
 const SLIPPAGES = [
+  { label: '0.1%', bps: 10 },
   { label: '0.5%', bps: 50 },
   { label: '1%', bps: 100 },
-  { label: '2%', bps: 200 },
-  { label: '3%', bps: 300 },
 ];
+const DEFAULT_SLIPPAGE_BPS = 50; // 0.5% — industry default (Uniswap/Pancake)
+const MIN_SLIPPAGE_BPS = 5; // 0.05%
+const MAX_SLIPPAGE_BPS = 4900; // 49%
 
 export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listing; initialCurrency?: string; onClose: () => void }) {
   const { tezos, michelsonAddress, aliasAddress } = useWallet();
@@ -40,7 +42,8 @@ export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listi
   const { erc } = useBalances(aliasAddress, michelsonAddress, payTokens);
 
   const [token, setToken] = useState<ThreeRouteToken | null>(null);
-  const [slippageBps, setSlippageBps] = useState(200);
+  const [slippageBps, setSlippageBps] = useState(DEFAULT_SLIPPAGE_BPS);
+  const [customSlippage, setCustomSlippage] = useState(''); // raw % text for the custom field ('' = a preset is active)
   const [intent, setIntent] = useState<BuyIntent | null>(null);
   const [ops, setOps] = useState<ParamsWithKind[] | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -142,17 +145,43 @@ export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listi
         </div>
 
         {/* slippage */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="label">Slippage</span>
-          {SLIPPAGES.map((s) => (
-            <button
-              key={s.bps}
-              onClick={() => setSlippageBps(s.bps)}
-              className={`chip ${slippageBps === s.bps ? 'border-accent text-accent' : ''}`}
-            >
-              {s.label}
-            </button>
-          ))}
+        <div className="mb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="label">Slippage</span>
+            {SLIPPAGES.map((s) => (
+              <button
+                key={s.bps}
+                onClick={() => {
+                  setSlippageBps(s.bps);
+                  setCustomSlippage('');
+                }}
+                className={`chip ${!customSlippage && slippageBps === s.bps ? 'border-accent text-accent' : ''}`}
+              >
+                {s.label}
+              </button>
+            ))}
+            <span className={`chip gap-1 ${customSlippage ? 'border-accent text-accent' : ''}`}>
+              <input
+                type="number"
+                step="0.1"
+                min={MIN_SLIPPAGE_BPS / 100}
+                max={MAX_SLIPPAGE_BPS / 100}
+                placeholder="custom"
+                value={customSlippage}
+                onChange={(e) => {
+                  setCustomSlippage(e.target.value);
+                  const pct = Number(e.target.value);
+                  if (Number.isFinite(pct) && pct > 0) {
+                    setSlippageBps(Math.min(MAX_SLIPPAGE_BPS, Math.max(MIN_SLIPPAGE_BPS, Math.round(pct * 100))));
+                  }
+                }}
+                className="w-14 bg-transparent text-right outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              %
+            </span>
+          </div>
+          {slippageBps > 500 && <p className="mt-1.5 text-[11px] text-amber-400">High slippage — you may overpay.</p>}
+          {slippageBps < 10 && <p className="mt-1.5 text-[11px] text-slate-500">Very low — the swap may revert on a thin pool.</p>}
         </div>
 
         {/* intent */}
