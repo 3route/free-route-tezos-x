@@ -1,9 +1,15 @@
 'use client';
 import { useWallet } from '@/lib/wallet';
-import { useUi } from '@/lib/ui';
+import { useUi, type Mode } from '@/lib/ui';
 import { useBalances, useTokens } from '@/lib/hooks';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { CFG } from '@/lib/config';
+
+const MODES: Array<{ key: Mode; label: string }> = [
+  { key: 'buyer', label: 'Buyer' },
+  { key: 'seller', label: 'Seller' },
+  { key: 'owned', label: 'My NFTs' },
+];
 
 export function Header() {
   const { connected, address, alias, connect, disconnect, connecting } = useWallet();
@@ -24,15 +30,15 @@ export function Header() {
 
         {/* mode toggle */}
         <div className="flex rounded-xl border border-edge p-0.5">
-          {(['buyer', 'seller'] as const).map((mItem) => (
+          {MODES.map((m) => (
             <button
-              key={mItem}
-              onClick={() => setMode(mItem)}
-              className={`rounded-lg px-3.5 py-1.5 text-sm capitalize transition ${
-                mode === mItem ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-200'
+              key={m.key}
+              onClick={() => setMode(m.key)}
+              className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm transition ${
+                mode === m.key ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              {mItem}
+              {m.label}
             </button>
           ))}
         </div>

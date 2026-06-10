@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Mode = 'buyer' | 'seller';
+export type Mode = 'buyer' | 'seller' | 'owned';
 
 interface UiState {
   mode: Mode;

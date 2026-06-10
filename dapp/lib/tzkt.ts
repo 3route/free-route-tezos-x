@@ -55,3 +55,14 @@ export async function fetchOwner(tokenId: string): Promise<string | null> {
   const k = (await fetch(`${CFG.tzktApi}/bigmaps/${FA2_LEDGER_BIGMAP}/keys?key=${tokenId}`).then((r) => r.json()).catch(() => [])) as Array<{ value?: string }>;
   return k[0]?.value ?? null;
 }
+
+export interface OwnedToken {
+  tokenId: string;
+}
+
+// Tokens from the test FA2 currently owned by `tz1` (ledger bigmap: token_id -> owner).
+export async function fetchOwned(tz1: string): Promise<OwnedToken[]> {
+  const url = `${CFG.tzktApi}/bigmaps/${FA2_LEDGER_BIGMAP}/keys?value=${tz1}&active=true&limit=200&sort.desc=id`;
+  const keys = (await fetch(url).then((r) => r.json()).catch(() => [])) as Array<{ key: string }>;
+  return keys.map((k) => ({ tokenId: k.key }));
+}

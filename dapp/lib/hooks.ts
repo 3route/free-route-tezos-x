@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NATIVE_XTZ, threeRoute } from './sdk';
 import type { ThreeRouteToken } from './sdk';
-import { fetchErc20Balance, fetchListings, fetchXtzBalance, type Listing } from './tzkt';
+import { fetchErc20Balance, fetchListings, fetchOwned, fetchXtzBalance, type Listing, type OwnedToken } from './tzkt';
 import { useUi } from './ui';
 import { fmtSig } from './format';
 
@@ -132,4 +132,28 @@ export function useListings() {
     void refresh();
   }, [refresh]);
   return { listings, loading, refresh };
+}
+
+// Tokens owned by the connected tz1.
+export function useOwned(tz1: string | null) {
+  const [owned, setOwned] = useState<OwnedToken[]>([]);
+  const [loading, setLoading] = useState(false);
+  const bump = useUi((s) => s.bump);
+  const refresh = useCallback(async () => {
+    if (!tz1) {
+      setOwned([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      setOwned(await fetchOwned(tz1));
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tz1, bump]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  return { owned, loading, refresh };
 }
