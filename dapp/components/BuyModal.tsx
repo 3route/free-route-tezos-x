@@ -187,7 +187,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
             </span>
           </div>
           {slippageBps > 500 && <p className="mt-1.5 text-[11px] text-amber-400">High slippage — you may overpay.</p>}
-          {slippageBps < 10 && <p className="mt-1.5 text-[11px] text-slate-500">Very low — the swap may revert on a thin pool.</p>}
+          {slippageBps < 10 && <p className="mt-1.5 text-[11px] text-amber-400">Very low — the swap may revert on a thin pool.</p>}
         </div>
 
         {/* intent */}
