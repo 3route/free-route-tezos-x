@@ -121,25 +121,27 @@ export function BuyerPanel() {
                 #{short(l.tokenId, 5)} · ask {l.askId}
               </div>
 
-              {currency === 'XTZ' || !token ? (
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-lg font-semibold">{mutezToXtz(l.priceMutez, 4)}</span>
-                  <span className="text-xs text-slate-500">XTZ</span>
-                </div>
-              ) : (
-                <div className="mt-2">
+              {/* fixed-height price area so long converted amounts don't make cards jump */}
+              <div className="mt-2 h-[2.75rem]">
+                {currency === 'XTZ' || !token ? (
                   <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-semibold">
-                      {inToken === null ? '…' : `≈ ${fmtSig(inToken, token.decimals, 4)}`}
-                    </span>
-                    <span className="text-xs text-slate-500">{token.symbol}</span>
+                    <span className="text-lg font-semibold">{mutezToXtz(l.priceMutez, 4)}</span>
+                    <span className="text-xs text-slate-500">XTZ</span>
                   </div>
-                  <div className="text-[11px] text-slate-600">{mutezToXtz(l.priceMutez, 4)} XTZ</div>
-                </div>
-              )}
+                ) : (
+                  <>
+                    <div className="truncate text-lg font-semibold leading-tight">
+                      {inToken === null ? '…' : `≈ ${fmtSig(inToken, token.decimals, 4)}`}
+                    </div>
+                    <div className="truncate text-[11px] text-slate-500">
+                      {token.symbol} · {mutezToXtz(l.priceMutez, 4)} XTZ
+                    </div>
+                  </>
+                )}
+              </div>
 
-              <div className="mt-0.5 text-[11px] text-slate-600">seller {short(l.seller, 5)}</div>
-              <button className="btn-primary mt-3" disabled={!connected} onClick={() => setSel(l)}>
+              <div className="mt-auto pt-2 text-[11px] text-slate-600">seller {short(l.seller, 5)}</div>
+              <button className="btn-primary mt-2" disabled={!connected} onClick={() => setSel(l)}>
                 Buy
               </button>
             </div>
