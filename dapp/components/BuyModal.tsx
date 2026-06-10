@@ -30,7 +30,7 @@ const SLIPPAGES = [
   { label: '0.5%', bps: 50 },
   { label: '1%', bps: 100 },
 ];
-const MIN_SLIPPAGE_BPS = 5; // 0.05%
+const MIN_SLIPPAGE_BPS = 0; // 0% — zero tolerance is allowed (warned as very low)
 const MAX_SLIPPAGE_BPS = 4900; // 49%
 
 export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () => void }) {
@@ -179,7 +179,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                   // cap the entered value so you can't type beyond the allowed range
                   const text = pct > maxPct ? ((pct = maxPct), String(maxPct)) : raw;
                   setCustomSlippage(text);
-                  if (pct > 0) setSlippageBps(Math.max(MIN_SLIPPAGE_BPS, Math.round(pct * 100)));
+                  setSlippageBps(Math.min(MAX_SLIPPAGE_BPS, Math.max(MIN_SLIPPAGE_BPS, Math.round(pct * 100))));
                 }}
                 className="w-14 bg-transparent text-right outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
               />
