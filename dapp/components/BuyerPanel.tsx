@@ -5,15 +5,16 @@ import { useWallet } from '@/lib/wallet';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { BuyModal } from './BuyModal';
+import { Select, type SelectOption } from './Select';
 import type { Listing } from '@/lib/tzkt';
 
 type SortKey = 'new' | 'old' | 'price-asc' | 'price-desc' | 'name';
-const SORTS: Array<{ key: SortKey; label: string }> = [
-  { key: 'new', label: 'Newest' },
-  { key: 'old', label: 'Oldest' },
-  { key: 'price-asc', label: 'Price ↑' },
-  { key: 'price-desc', label: 'Price ↓' },
-  { key: 'name', label: 'Name A–Z' },
+const SORTS: SelectOption<SortKey>[] = [
+  { value: 'new', label: 'Newest' },
+  { value: 'old', label: 'Oldest' },
+  { value: 'price-asc', label: 'Price ↑' },
+  { value: 'price-desc', label: 'Price ↓' },
+  { value: 'name', label: 'Name A–Z' },
 ];
 
 export function BuyerPanel() {
@@ -61,18 +62,8 @@ export function BuyerPanel() {
           Listings <span className="ml-1 text-sm text-slate-500">{listings.length}</span>
         </h2>
         <div className="flex items-center gap-2">
-          <label className="label">Sort</label>
-          <select
-            className="input w-auto py-1.5 text-sm"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-          >
-            {SORTS.map((s) => (
-              <option key={s.key} value={s.key} className="bg-panel">
-                {s.label}
-              </option>
-            ))}
-          </select>
+          <span className="label">Sort</span>
+          <Select value={sort} options={SORTS} onChange={setSort} />
           <button className="btn-ghost" onClick={() => void refresh()}>
             ↻ Refresh
           </button>
