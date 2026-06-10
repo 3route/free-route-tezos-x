@@ -41,7 +41,8 @@ export interface SwapTx {
   gasPrice: string;
 }
 export interface SwapResponse {
-  srcAmount: string; // amountIn to pay/approve  (was SwapParams.input)
-  dstAmount: string; // output amount            (was SwapParams.output)
+  srcAmount: string; // amountIn to pay/approve (strict — the calldata is exact-input)
+  dstAmount: string; // expected output amount
+  dstAmountMin?: string; // guaranteed minimum output (amountOutMin in calldata); optional for older servers
   tx: SwapTx; // router calldata          (replaces hops)
 }

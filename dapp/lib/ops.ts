@@ -69,8 +69,10 @@ export interface BuyIntent {
   tokenId: string;
   priceMutez: number;
   payToken: ThreeRouteToken;
-  payAmount: string; // srcAmount, raw units of payToken
-  amountOutTargetWei: string;
+  payAmount: string; // srcAmount, raw units of payToken — STRICT (calldata is exact-input)
+  expectedOutMutez: number; // floor(dstAmount / 1e12) — expected XTZ out
+  minOutMutez: number; // floor(dstAmountMin / 1e12) — guaranteed XTZ floor (== price after our sizing)
+  changeMutez: number; // expectedOut - price, returned to the buyer tz1 (>= 0)
   slippageBps: number;
   router: string;
   alias: string;
@@ -116,20 +118,27 @@ export async function buildBuyBatch(
     amount: quote.srcAmount,
   });
 
+  // wei -> mutez is floor(/1e12); the SDK sizes minOut so it floors to >= price
+  const expectedOutMutez = Number(BigInt(quote.dstAmount) / 10n ** 12n);
+  const minOutMutez = Number(BigInt(quote.dstAmountMin ?? priceWei.toString()) / 10n ** 12n);
+  const changeMutez = Math.max(0, expectedOutMutez - ask.priceMutez);
+
   const intent: BuyIntent = {
     askId: ask.askId,
     tokenId: ask.tokenId,
     priceMutez: ask.priceMutez,
     payToken,
     payAmount: quote.srcAmount,
-    amountOutTargetWei: targetWei,
+    expectedOutMutez,
+    minOutMutez,
+    changeMutez,
     slippageBps,
     router: quote.tx.to,
     alias,
     steps: [
-      { kind: 'approve', detail: `approve ${payToken.symbol} -> 3route router` },
-      { kind: 'swap (call_evm)', detail: `${payToken.symbol} -> native XTZ, output to alias (auto-forwards to tz1)` },
-      { kind: 'fulfill_ask', detail: `buy ask#${ask.askId} for ${ask.priceMutez / 1e6} XTZ` },
+      { kind: 'approve', detail: `approve exactly ${payToken.symbol} to the 3route router` },
+      { kind: 'swap (call_evm)', detail: `${payToken.symbol} → native XTZ to your alias → auto-forwards to tz1` },
+      { kind: 'fulfill_ask', detail: `buy ask#${ask.askId}, pay ${ask.priceMutez / 1e6} XTZ` },
     ],
   };
   return { ops, intent, quote };

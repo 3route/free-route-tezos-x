@@ -145,25 +145,45 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
           {intent && token && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">You pay</span>
+                <span className="text-slate-400">
+                  You pay <span className="text-[10px] uppercase tracking-wide text-slate-600">exact</span>
+                </span>
                 <span className="font-mono">
-                  ≤ {fmtSig(intent.payAmount, token.decimals, 6)} {token.symbol}
+                  {fmtSig(intent.payAmount, token.decimals, 6)} {token.symbol}
+                </span>
+              </div>
+              <div className="flex items-start justify-between">
+                <span className="text-slate-400">You receive</span>
+                <span className="text-right font-mono">
+                  <span className="block">
+                    ≈ {mutezToXtz(intent.expectedOutMutez, 6)} XTZ{' '}
+                    <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
+                  </span>
+                  <span className="block text-xs text-slate-500">≥ {mutezToXtz(intent.minOutMutez, 6)} XTZ guaranteed</span>
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">NFT costs</span>
+                <span className="text-slate-400">NFT price</span>
                 <span className="font-mono">{mutezToXtz(priceMutez, 6)} XTZ</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Route</span>
-                <span className="font-mono text-xs">{token.symbol} → XTZ · router {short(intent.router, 5)}</span>
+                <span className="text-slate-400">Change → your tz1</span>
+                <span className="font-mono text-xs">
+                  ≈ {mutezToXtz(intent.changeMutez, 6)} XTZ · {short(address ?? '', 6)}
+                </span>
+              </div>
+              <div className="flex items-start justify-between">
+                <span className="text-slate-400">Slippage</span>
+                <span className="max-w-[60%] text-right text-xs text-slate-500">
+                  {intent.slippageBps / 100}% — if output &lt; {mutezToXtz(intent.minOutMutez, 6)} XTZ the purchase reverts ({token.symbol} refunded)
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Alias</span>
-                <span className="font-mono text-xs">{short(intent.alias, 6)}</span>
+                <span className="text-slate-400">Route</span>
+                <span className="font-mono text-xs">{token.symbol} → XTZ · 3route {short(intent.router, 5)}</span>
               </div>
               <div className="mt-2 border-t border-edge pt-2">
-                <div className="label mb-1">One atomic op-group</div>
+                <div className="label mb-1">One signature · atomic op-group</div>
                 <ol className="space-y-1 text-xs text-slate-400">
                   {intent.steps.map((s, i) => (
                     <li key={i} className="flex gap-2">
