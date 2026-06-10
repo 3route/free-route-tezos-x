@@ -15,8 +15,11 @@ export function useTokens() {
       .then(setTokens)
       .catch((e: Error) => setError(e.message));
   }, []);
-  // payment tokens = everything except the native-XTZ sentinel
-  const payTokens = tokens.filter((t) => t.address.toLowerCase() !== NATIVE_XTZ.toLowerCase());
+  // payment/quote tokens = real ERC20s: drop the native-XTZ sentinel and any plain "XTZ" registry entry
+  // (those are the native currency itself — redundant with the XTZ option / pointless to swap XTZ->XTZ).
+  const payTokens = tokens.filter(
+    (t) => t.address.toLowerCase() !== NATIVE_XTZ.toLowerCase() && t.symbol.toUpperCase() !== 'XTZ',
+  );
   return { tokens, payTokens, error };
 }
 
@@ -47,6 +50,56 @@ export function useBalances(alias: string | null, tz1: string | null, payTokens:
   }, [refresh]);
 
   return { xtz, erc, loading, refresh };
+}
+
+// Live price-currency converter. Pulls ONE exact-out rate (token per 1 XTZ) from the 3route /swap
+// endpoint and applies it to every listing; auto-refreshes every 30s. currency 'XTZ' = no conversion.
+const REF_XTZ_MUTEZ = 1_000_000n; // 1 XTZ
+const REF_XTZ_WEI = (REF_XTZ_MUTEZ * 10n ** 12n).toString();
+const QUOTE_ADDR = '0x000000000000000000000000000000000000dEaD'; // placeholder for keyless rate quotes
+
+export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string | null) {
+  const [currency, setCurrency] = useState<string>('XTZ'); // 'XTZ' | token address
+  const [rate, setRate] = useState<bigint | null>(null); // token base units per 1 XTZ
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const token = payTokens.find((t) => t.address === currency) ?? null;
+  const addr = refAddr || QUOTE_ADDR;
+
+  useEffect(() => {
+    if (!token) {
+      setRate(null);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchRate = async () => {
+      try {
+        const q = await threeRoute.getSwap(token.address, NATIVE_XTZ, REF_XTZ_WEI, addr, addr, 1);
+        if (!cancelled) {
+          setRate(BigInt(q.srcAmount));
+          setUpdatedAt(Date.now());
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message);
+      }
+    };
+    void fetchRate();
+    const id = setInterval(fetchRate, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [token, addr]);
+
+  // listing price (mutez) -> selected token base units
+  const convert = (priceMutez: string | number): bigint | null => {
+    if (!token || rate === null) return null;
+    return (BigInt(priceMutez) * rate) / REF_XTZ_MUTEZ;
+  };
+
+  return { currency, setCurrency, token, rate, convert, updatedAt, error };
 }
 
 // Active XTZ-priced listings for the test FA2.
