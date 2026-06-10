@@ -15,7 +15,21 @@ interface WalletState {
   connecting: boolean;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  restore: () => Promise<void>; // rehydrate an existing Beacon session on page load
 }
+
+const makeWallet = (): BeaconWallet =>
+  new BeaconWallet({
+    name: 'objkt EVM-pay',
+    // previewnet is a custom network for the wallet.
+    network: { type: 'custom' as never, name: NETWORK_NAME, rpcUrl: CFG.tezRpc },
+  });
+
+const bind = (wallet: BeaconWallet, address: string) => {
+  const tezos = new TezosToolkit(CFG.tezRpc);
+  tezos.setWalletProvider(wallet);
+  return { connected: true, address, alias: tzToAlias(address), tezos, wallet, connecting: false };
+};
 
 export const useWallet = create<WalletState>((set, get) => ({
   connected: false,
@@ -25,22 +39,29 @@ export const useWallet = create<WalletState>((set, get) => ({
   wallet: null,
   connecting: false,
 
+  // Beacon persists the active account in localStorage; restore it without prompting on reload.
+  restore: async () => {
+    if (get().connected || get().connecting) return;
+    try {
+      const wallet = makeWallet();
+      const account = await wallet.client.getActiveAccount();
+      if (!account) return;
+      set(bind(wallet, account.address));
+      log.info(`Wallet session restored: ${account.address}`);
+    } catch {
+      /* no persisted session — stay disconnected */
+    }
+  },
+
   connect: async () => {
     if (get().connecting || get().connected) return;
     set({ connecting: true });
     try {
-      const wallet = new BeaconWallet({
-        name: 'objkt EVM-pay',
-        // previewnet is a custom network for the wallet.
-        network: { type: 'custom' as never, name: NETWORK_NAME, rpcUrl: CFG.tezRpc },
-      });
+      const wallet = makeWallet();
       await wallet.requestPermissions();
       const address = await wallet.getPKH();
-      const tezos = new TezosToolkit(CFG.tezRpc);
-      tezos.setWalletProvider(wallet);
-      const alias = tzToAlias(address);
-      set({ connected: true, address, alias, tezos, wallet, connecting: false });
-      log.ok(`Wallet connected: ${address}`, `alias ${alias}`);
+      set(bind(wallet, address));
+      log.ok(`Wallet connected: ${address}`, `alias ${tzToAlias(address)}`);
     } catch (e) {
       set({ connecting: false });
       log.err('Wallet connection failed', (e as Error).message);

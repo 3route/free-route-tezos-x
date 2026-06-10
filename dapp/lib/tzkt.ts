@@ -37,9 +37,12 @@ export async function fetchListings(): Promise<Listing[]> {
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
 
+// One shared EVM provider for all balance reads (avoids re-creating it per call).
+let evmProvider: ethers.JsonRpcProvider | null = null;
+const getEvmProvider = () => (evmProvider ??= new ethers.JsonRpcProvider(CFG.evmRpc, undefined, { batchMaxCount: 1 }));
+
 export async function fetchErc20Balance(token: string, owner: string): Promise<bigint> {
-  const provider = new ethers.JsonRpcProvider(CFG.evmRpc, undefined, { batchMaxCount: 1 });
-  const c = new ethers.Contract(token, ERC20_ABI, provider) as unknown as { balanceOf(a: string): Promise<bigint> };
+  const c = new ethers.Contract(token, ERC20_ABI, getEvmProvider()) as unknown as { balanceOf(a: string): Promise<bigint> };
   return c.balanceOf(owner);
 }
 

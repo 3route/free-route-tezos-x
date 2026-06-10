@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { NATIVE_XTZ, threeRoute } from './sdk';
 import type { ThreeRouteToken } from './sdk';
 import { fetchErc20Balance, fetchListings, fetchXtzBalance, type Listing } from './tzkt';
@@ -18,8 +18,11 @@ export function useTokens() {
   }, []);
   // payment/quote tokens = real ERC20s: drop the native-XTZ sentinel and any plain "XTZ" registry entry
   // (those are the native currency itself — redundant with the XTZ option / pointless to swap XTZ->XTZ).
-  const payTokens = tokens.filter(
-    (t) => t.address.toLowerCase() !== NATIVE_XTZ.toLowerCase() && t.symbol.toUpperCase() !== 'XTZ',
+  // Memoized so its identity is stable across renders — otherwise dependent effects (balances, rate)
+  // would refetch on every render.
+  const payTokens = useMemo(
+    () => tokens.filter((t) => t.address.toLowerCase() !== NATIVE_XTZ.toLowerCase() && t.symbol.toUpperCase() !== 'XTZ'),
+    [tokens],
   );
   return { tokens, payTokens, error };
 }

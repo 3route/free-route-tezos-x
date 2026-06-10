@@ -1,12 +1,18 @@
 'use client';
+import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { SellerPanel } from '@/components/SellerPanel';
 import { BuyerPanel } from '@/components/BuyerPanel';
 import { LogPanel } from '@/components/LogPanel';
 import { useUi } from '@/lib/ui';
+import { useWallet } from '@/lib/wallet';
 
 export default function Page() {
   const mode = useUi((s) => s.mode);
+  const restore = useWallet((s) => s.restore);
+  useEffect(() => {
+    void restore(); // rehydrate an existing Temple session after a reload
+  }, [restore]);
   return (
     <>
       <Header />
