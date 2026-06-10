@@ -66,12 +66,17 @@ const REF_XTZ_WEI = (REF_XTZ_MUTEZ * 10n ** 12n).toString();
 const QUOTE_ADDR = '0x000000000000000000000000000000000000dEaD'; // placeholder for keyless rate quotes
 
 export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string | null) {
-  const [currency, setCurrency] = useState<string>('XTZ'); // 'XTZ' | token address
+  const [currency, setCurrency] = useState<string>(''); // '' until tokens load, then first token; 'XTZ' = no conversion
   const [rate, setRate] = useState<bigint | null>(null); // token base units per 1 XTZ
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const token = payTokens.find((t) => t.address === currency) ?? null;
   const addr = refAddr || QUOTE_ADDR;
+
+  // default to the first pay-token once the registry loads (runs once; user can switch / toggle to XTZ after)
+  useEffect(() => {
+    if (!currency && payTokens.length) setCurrency(payTokens[0].address);
+  }, [currency, payTokens]);
 
   useEffect(() => {
     if (!token) {

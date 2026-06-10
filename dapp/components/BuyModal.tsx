@@ -33,7 +33,7 @@ const SLIPPAGES = [
   { label: '3%', bps: 300 },
 ];
 
-export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () => void }) {
+export function BuyModal({ listing, initialCurrency, onClose }: { listing: Listing; initialCurrency?: string; onClose: () => void }) {
   const { tezos, michelsonAddress, aliasAddress } = useWallet();
   const refresh = useUi((s) => s.refresh);
   const { payTokens } = useTokens();
@@ -50,8 +50,8 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
   const priceMutez = Number(listing.priceMutez);
 
   useEffect(() => {
-    if (!token && payTokens.length) setToken(payTokens[0]);
-  }, [payTokens, token]);
+    if (!token && payTokens.length) setToken(payTokens.find((t) => t.address === initialCurrency) ?? payTokens[0]);
+  }, [payTokens, token, initialCurrency]);
 
   // (re)quote whenever the pay token or slippage changes
   useEffect(() => {
