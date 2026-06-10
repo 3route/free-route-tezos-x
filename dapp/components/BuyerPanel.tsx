@@ -53,8 +53,10 @@ export function BuyerPanel() {
   const ago = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : null;
   const inSec = ago !== null ? Math.max(0, 30 - ago) : null; // countdown to the next rate refresh (30s)
 
-  const currencies = ['XTZ', ...payTokens.map((t) => t.address)];
-  const symbolOf = (c: string) => (c === 'XTZ' ? 'XTZ' : payTokens.find((t) => t.address === c)?.symbol ?? '?');
+  // Only ERC20s in the switcher — the card already shows the XTZ price. Clicking the active one again
+  // toggles back to the XTZ-only view (currency 'XTZ').
+  const currencies = payTokens.map((t) => t.address);
+  const symbolOf = (c: string) => payTokens.find((t) => t.address === c)?.symbol ?? '?';
 
   return (
     <div className="space-y-4">
@@ -77,7 +79,7 @@ export function BuyerPanel() {
         {currencies.map((c) => (
           <button
             key={c}
-            onClick={() => setCurrency(c)}
+            onClick={() => setCurrency(currency === c ? 'XTZ' : c)}
             className={`chip ${currency === c ? 'border-accent text-accent' : ''}`}
           >
             {symbolOf(c)}
