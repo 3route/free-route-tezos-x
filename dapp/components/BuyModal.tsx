@@ -129,19 +129,16 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
           </div>
         </div>
 
-        {/* pay token */}
-        <div className="label mb-1.5">Pay with</div>
-        <div className="mb-4 grid grid-cols-3 gap-2">
+        {/* pay token — compact chips, like the listing switcher */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="label">Pay with</span>
           {payTokens.map((t) => (
             <button
               key={t.address}
               onClick={() => setCurrency(t.address)}
-              className={`rounded-xl border px-3 py-2 text-left transition ${
-                token?.address === t.address ? 'border-accent bg-accent/10' : 'border-edge hover:bg-white/5'
-              }`}
+              className={`chip ${token?.address === t.address ? 'border-accent text-accent' : ''}`}
             >
-              <div className="text-sm font-medium">{t.symbol}</div>
-              <div className="font-mono text-[11px] text-slate-500">{fmtSig(erc[t.address] ?? 0n, t.decimals, 3)}</div>
+              {t.symbol}
             </button>
           ))}
         </div>

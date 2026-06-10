@@ -80,7 +80,7 @@ export function BuyerPanel() {
           {currencies.map((c) => (
             <button
               key={c}
-              onClick={() => setCurrency(currency === c ? 'XTZ' : c)}
+              onClick={() => setCurrency(c)}
               className={`chip ${currency === c ? 'border-accent text-accent' : ''}`}
             >
               {symbolOf(c)}
