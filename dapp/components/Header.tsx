@@ -1,9 +1,6 @@
 'use client';
-import { useWallet } from '@/lib/wallet';
 import { useUi, type Mode } from '@/lib/ui';
-import { useBalances, useTokens } from '@/lib/hooks';
-import { fmtSig, mutezToXtz, short } from '@/lib/format';
-import { CFG } from '@/lib/config';
+import { WalletMenu } from './WalletMenu';
 
 const MODES: Array<{ key: Mode; label: string }> = [
   { key: 'buyer', label: 'Buyer' },
@@ -12,10 +9,7 @@ const MODES: Array<{ key: Mode; label: string }> = [
 ];
 
 export function Header() {
-  const { connected, address, alias, connect, disconnect, connecting } = useWallet();
   const { mode, setMode } = useUi();
-  const { payTokens } = useTokens();
-  const { xtz, erc, loading } = useBalances(alias, address, payTokens);
 
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-ink/80 backdrop-blur">
@@ -43,38 +37,8 @@ export function Header() {
           ))}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {connected && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="chip" title="tz1 balance">
-                <span className="text-slate-500">XTZ</span>
-                <span className="font-mono">{xtz === null ? '…' : mutezToXtz(xtz, 4)}</span>
-              </span>
-              {payTokens.map((t) => (
-                <span key={t.address} className="chip" title={`alias ${t.symbol}`}>
-                  <span className="text-slate-500">{t.symbol}</span>
-                  <span className="font-mono">{erc[t.address] === undefined ? '…' : fmtSig(erc[t.address] ?? 0n, t.decimals, 3)}</span>
-                </span>
-              ))}
-              {loading && <span className="text-[11px] text-slate-600">refreshing…</span>}
-            </div>
-          )}
-
-          {connected ? (
-            <div className="flex items-center gap-2">
-              <span className="chip" title={`${address}\nalias ${alias}`}>
-                <span className="h-2 w-2 rounded-full bg-accent2" />
-                <span className="font-mono">{short(address ?? '')}</span>
-              </span>
-              <button className="btn-ghost" onClick={() => void disconnect()}>
-                Disconnect
-              </button>
-            </div>
-          ) : (
-            <button className="btn-primary" onClick={() => void connect()} disabled={connecting}>
-              {connecting ? 'Connecting…' : 'Connect Temple'}
-            </button>
-          )}
+        <div className="ml-auto">
+          <WalletMenu />
         </div>
       </div>
     </header>
