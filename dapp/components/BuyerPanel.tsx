@@ -74,19 +74,21 @@ export function BuyerPanel() {
       </div>
 
       {/* currency switcher */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="label">Show price in</span>
-        {currencies.map((c) => (
-          <button
-            key={c}
-            onClick={() => setCurrency(currency === c ? 'XTZ' : c)}
-            className={`chip ${currency === c ? 'border-accent text-accent' : ''}`}
-          >
-            {symbolOf(c)}
-          </button>
-        ))}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="label">Show price in</span>
+          {currencies.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCurrency(currency === c ? 'XTZ' : c)}
+              className={`chip ${currency === c ? 'border-accent text-accent' : ''}`}
+            >
+              {symbolOf(c)}
+            </button>
+          ))}
+        </div>
         {currency !== 'XTZ' && (
-          <span className="ml-1 text-[11px] text-slate-500">
+          <div className="text-[11px] text-slate-500">
             {error ? (
               <span className="text-rose-400">rate unavailable</span>
             ) : (
@@ -95,7 +97,7 @@ export function BuyerPanel() {
                 {inSec !== null ? ` · updating in ${inSec}s` : ''}
               </>
             )}
-          </span>
+          </div>
         )}
       </div>
 
