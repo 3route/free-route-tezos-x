@@ -166,10 +166,14 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                 <span className="text-slate-400">NFT price</span>
                 <span className="font-mono">{mutezToXtz(priceMutez, 6)} XTZ</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between">
                 <span className="text-slate-400">Change → your tz1</span>
-                <span className="font-mono text-xs">
-                  ≈ {mutezToXtz(intent.changeMutez, 6)} XTZ · {short(address ?? '', 6)}
+                <span className="text-right font-mono">
+                  <span className="block">
+                    ≈ {mutezToXtz(intent.changeMutez, 6)} XTZ{' '}
+                    <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
+                  </span>
+                  <span className="block text-xs text-slate-500">≥ 0, set on-chain · {short(address ?? '', 6)}</span>
                 </span>
               </div>
               <div className="flex items-start justify-between">
