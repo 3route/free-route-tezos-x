@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useListings, usePriceCurrency, useTokens } from '@/lib/hooks';
 import { useWallet } from '@/lib/wallet';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
@@ -7,12 +7,41 @@ import { nftHue, nftName } from '@/lib/names';
 import { BuyModal } from './BuyModal';
 import type { Listing } from '@/lib/tzkt';
 
+type SortKey = 'new' | 'old' | 'price-asc' | 'price-desc' | 'name';
+const SORTS: Array<{ key: SortKey; label: string }> = [
+  { key: 'new', label: 'Newest' },
+  { key: 'old', label: 'Oldest' },
+  { key: 'price-asc', label: 'Price ↑' },
+  { key: 'price-desc', label: 'Price ↓' },
+  { key: 'name', label: 'Name A–Z' },
+];
+
 export function BuyerPanel() {
   const { listings, loading, refresh } = useListings();
   const { connected, alias } = useWallet();
   const { payTokens } = useTokens();
   const { currency, setCurrency, token, convert, rateLabel, updatedAt, error } = usePriceCurrency(payTokens, alias);
   const [sel, setSel] = useState<Listing | null>(null);
+  const [sort, setSort] = useState<SortKey>('new');
+
+  const sorted = useMemo(() => {
+    const arr = [...listings];
+    const price = (l: Listing) => BigInt(l.priceMutez);
+    switch (sort) {
+      case 'new':
+        return arr.sort((a, b) => Number(b.askId) - Number(a.askId));
+      case 'old':
+        return arr.sort((a, b) => Number(a.askId) - Number(b.askId));
+      case 'price-asc':
+        return arr.sort((a, b) => (price(a) < price(b) ? -1 : price(a) > price(b) ? 1 : 0));
+      case 'price-desc':
+        return arr.sort((a, b) => (price(b) < price(a) ? -1 : price(b) > price(a) ? 1 : 0));
+      case 'name':
+        return arr.sort((a, b) => nftName(a.tokenId).localeCompare(nftName(b.tokenId)));
+      default:
+        return arr;
+    }
+  }, [listings, sort]);
 
   // tick every second so the "updated Ns ago" label stays fresh
   const [now, setNow] = useState(() => Date.now());
@@ -31,9 +60,23 @@ export function BuyerPanel() {
         <h2 className="text-lg font-semibold">
           Listings <span className="ml-1 text-sm text-slate-500">{listings.length}</span>
         </h2>
-        <button className="btn-ghost" onClick={() => void refresh()}>
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="label">Sort</label>
+          <select
+            className="input w-auto py-1.5 text-sm"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+          >
+            {SORTS.map((s) => (
+              <option key={s.key} value={s.key} className="bg-panel">
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <button className="btn-ghost" onClick={() => void refresh()}>
+            ↻ Refresh
+          </button>
+        </div>
       </div>
 
       {/* currency switcher */}
@@ -69,7 +112,7 @@ export function BuyerPanel() {
       )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {listings.map((l) => {
+        {sorted.map((l) => {
           const inToken = currency !== 'XTZ' ? convert(l.priceMutez) : null;
           return (
             <div key={l.askId} className="card flex flex-col p-3">
