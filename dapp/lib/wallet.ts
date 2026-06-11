@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { TezosToolkit } from '@taquito/taquito';
 import { BeaconWallet } from '@taquito/beacon-wallet';
+import { BeaconEvent } from '@airgap/beacon-dapp';
 import { CFG, NETWORK_NAME } from './config';
 import { michelsonToAlias } from './sdk';
 import { log } from './log';
@@ -31,51 +32,65 @@ const bind = (wallet: BeaconWallet, michelsonAddress: string) => {
   return { connected: true, michelsonAddress, aliasAddress: michelsonToAlias(michelsonAddress), tezos, wallet, connecting: false };
 };
 
-export const useWallet = create<WalletState>((set, get) => ({
-  connected: false,
-  michelsonAddress: null,
-  aliasAddress: null,
-  tezos: null,
-  wallet: null,
-  connecting: false,
+export const useWallet = create<WalletState>((set, get) => {
+  // Beacon >=4.2 requires a subscription to ACTIVE_ACCOUNT_SET; without it `getActiveAccount()` warns.
+  // The handler also keeps our state in sync if the active account changes/clears outside our own flow.
+  const subscribeActiveAccount = (wallet: BeaconWallet) =>
+    wallet.client.subscribeToEvent(BeaconEvent.ACTIVE_ACCOUNT_SET, (account) => {
+      const address = account?.address ?? null;
+      if (address === get().michelsonAddress) return; // already in sync (our connect/restore handled it)
+      if (address) set(bind(wallet, address));
+      else set({ connected: false, michelsonAddress: null, aliasAddress: null, tezos: null, wallet: null });
+    });
 
-  // Beacon persists the active account in localStorage; restore it without prompting on reload.
-  restore: async () => {
-    if (get().connected || get().connecting) return;
-    try {
-      const wallet = makeWallet();
-      const account = await wallet.client.getActiveAccount();
-      if (!account) return;
-      set(bind(wallet, account.address));
-      log.info(`Wallet session restored: ${account.address}`);
-    } catch {
-      /* no persisted session — stay disconnected */
-    }
-  },
+  return {
+    connected: false,
+    michelsonAddress: null,
+    aliasAddress: null,
+    tezos: null,
+    wallet: null,
+    connecting: false,
 
-  connect: async () => {
-    if (get().connecting || get().connected) return;
-    set({ connecting: true });
-    try {
-      const wallet = makeWallet();
-      await wallet.requestPermissions();
-      const michelsonAddress = await wallet.getPKH();
-      set(bind(wallet, michelsonAddress));
-      log.ok(`Wallet connected: ${michelsonAddress}`, `alias ${michelsonToAlias(michelsonAddress)}`);
-    } catch (e) {
-      set({ connecting: false });
-      log.err('Wallet connection failed', (e as Error).message);
-      throw e;
-    }
-  },
+    // Beacon persists the active account in localStorage; restore it without prompting on reload.
+    restore: async () => {
+      if (get().connected || get().connecting) return;
+      try {
+        const wallet = makeWallet();
+        subscribeActiveAccount(wallet);
+        const account = await wallet.client.getActiveAccount();
+        if (!account) return;
+        set(bind(wallet, account.address));
+        log.info(`Wallet session restored: ${account.address}`);
+      } catch {
+        /* no persisted session — stay disconnected */
+      }
+    },
 
-  disconnect: async () => {
-    const w = get().wallet;
-    try {
-      if (w) await w.clearActiveAccount();
-    } finally {
-      set({ connected: false, michelsonAddress: null, aliasAddress: null, tezos: null, wallet: null });
-      log.info('Wallet disconnected');
-    }
-  },
-}));
+    connect: async () => {
+      if (get().connecting || get().connected) return;
+      set({ connecting: true });
+      try {
+        const wallet = makeWallet();
+        subscribeActiveAccount(wallet);
+        await wallet.requestPermissions();
+        const michelsonAddress = await wallet.getPKH();
+        set(bind(wallet, michelsonAddress));
+        log.ok(`Wallet connected: ${michelsonAddress}`, `alias ${michelsonToAlias(michelsonAddress)}`);
+      } catch (e) {
+        set({ connecting: false });
+        log.err('Wallet connection failed', (e as Error).message);
+        throw e;
+      }
+    },
+
+    disconnect: async () => {
+      const w = get().wallet;
+      try {
+        if (w) await w.clearActiveAccount();
+      } finally {
+        set({ connected: false, michelsonAddress: null, aliasAddress: null, tezos: null, wallet: null });
+        log.info('Wallet disconnected');
+      }
+    },
+  };
+});

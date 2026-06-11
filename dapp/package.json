@@ -11,6 +11,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@airgap/beacon-dapp": "^4.5.1",
     "@taquito/beacon-wallet": "^21.0.5",
     "@taquito/rpc": "^21.0.5",
     "@taquito/taquito": "^21.0.5",
