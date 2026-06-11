@@ -3,22 +3,20 @@
 //   2. list it as an ask on the objkt v4 marketplace (priced in XTZ),
 //   3. fund the buyer's EVM alias with the pay-token by swapping a little of the buyer's XTZ via the router.
 // Then prints the ready `npm run example` command (with ASK_ID / TOKEN / PRICE_XTZ / PAY).
-// Run: RS_API=http://127.0.0.1:3000 [PAY=USDC PRICE_XTZ=0.004 FUND_XTZ=0.1] npx tsx scripts/setup.ts
+// Run: THREE_ROUTE_API=http://127.0.0.1:3000 [PAY=USDC PRICE_XTZ=0.004 FUND_XTZ=0.1] npx tsx scripts/setup.ts
 import { readFileSync } from 'node:fs';
 import { ethers } from 'ethers';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import type { MichelsonV1Expression } from '@taquito/rpc';
-import { NATIVE_XTZ, SWAP_SIG, ThreeRouteApi, tzToAlias } from '../sdk/helpers.js';
+import { ThreeRouteTezosX, XTZ, michelsonToAlias, sendGroup, targetForMinOut, tezosXPreviewnet } from '../sdk/index.js';
 
 const env = { ...readEnvFile('../.env'), ...readEnvFile('../.env.setup') }; // .env (shared) + setup-only extras
 const need = (k: string): string => { const v = env[k]; if (!v) throw new Error(`missing ${k} in .env / .env.setup`); return v; };
 
 const TEZ_RPC = 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 const EVM_RPC = 'https://evm.previewnet.tezosx.nomadic-labs.com';
-const GATEWAY = 'KT18oDJJKXMKhfE1bSuAPGp92pYcwVDiqsPw'; // Michelson->EVM gateway
-const CHAIN_ID = 128064;
-const RS_API = process.env.RS_API ?? 'http://127.0.0.1:3000';
+const THREE_ROUTE_API = process.env.THREE_ROUTE_API ?? 'http://127.0.0.1:3000';
 const OBJKT = need('OBJKT_MARKETPLACE');
 const FA2 = need('TEST_FA2');
 
@@ -29,7 +27,7 @@ const SLIPPAGE_BPS = 200; // 2%
 const PRICE_MUTEZ = Math.round(PRICE_XTZ * 1e6);
 const TOKEN = Number(process.env.TOKEN ?? Date.now()); // fresh id per run unless pinned
 
-// Micheline builders (objkt `ask` + FA2 `mint` need raw params — not in the typed ObjktContract).
+// Micheline builders (objkt `ask` + FA2 `mint` need raw params — no adapter for these in the SDK).
 const m = {
   string: (s: string): MichelsonV1Expression => ({ string: s }),
   int: (n: number | string): MichelsonV1Expression => ({ int: String(n) }),
@@ -53,7 +51,8 @@ const buyer = mk(need('BUYER_MICHELSON_SK'));
 const seller = mk(need('SELLER_MICHELSON_SK'));
 const buyerMichelsonAddress = await buyer.signer.publicKeyHash();
 const sellerMichelsonAddress = need('SELLER_MICHELSON');
-const aliasAddress = tzToAlias(buyerMichelsonAddress);
+const aliasAddress = michelsonToAlias(buyerMichelsonAddress);
+const swapper = new ThreeRouteTezosX({ network: tezosXPreviewnet, baseUrl: THREE_ROUTE_API });
 console.log(`buyer ${buyerMichelsonAddress} (alias ${aliasAddress}) · seller ${sellerMichelsonAddress}`);
 
 // 1) MINT a fresh token to the seller (FA2 `mint(owner, token_id)`), unless it already exists.
@@ -78,37 +77,32 @@ const askValue = m.pair(
 await (await seller.contract.transfer({ to: OBJKT, amount: 0, parameter: { entrypoint: 'ask', value: askValue }, gasLimit: 1_500_000, storageLimit: 3_000, fee: 200_000 })).confirmation();
 console.log(`listed ask#${askId} · token ${TOKEN} @ ${PRICE_MUTEZ} mutez (${PRICE_XTZ} XTZ)`);
 
-// 3) FUND the alias with the pay-token if it's short. Needed amount = exact-out quote (price x slippage).
-const api = new ThreeRouteApi(RS_API, CHAIN_ID);
-const payToken = (await api.getTokens()).find((t) => t.symbol === PAY);
+// 3) FUND the alias with the pay-token if it's short. Needed amount = the example's exact-out buy input.
+const payToken = (await swapper.getTokens()).find((t) => t.symbol === PAY);
 if (!payToken) throw new Error(`pay-token ${PAY} not in the 3route registry`);
 const provider = new ethers.JsonRpcProvider(EVM_RPC, undefined, { batchMaxCount: 1 });
 const erc20 = new ethers.Contract(payToken.address, ['function balanceOf(address) view returns (uint256)'], provider) as unknown as { balanceOf(a: string): Promise<bigint> };
 
-const targetWei = ((BigInt(PRICE_MUTEZ) * 10n ** 12n * (10000n + BigInt(SLIPPAGE_BPS))) / 10000n).toString(); // price x (1+slip), wei
-const buyQuote = await api.getSwap(payToken.address, NATIVE_XTZ, targetWei, aliasAddress, aliasAddress, SLIPPAGE_BPS / 100);
-const needed = BigInt(buyQuote.srcAmount); // pay-token units the example will spend
+// what the example buy (payToken -> XTZ, exact-out sized to cover the price) will spend
+const buyTarget = targetForMinOut(BigInt(PRICE_MUTEZ), SLIPPAGE_BPS);
+const { details: buy } = await swapper.prepareSwap({ account: buyerMichelsonAddress, src: payToken, dst: XTZ, amount: buyTarget, exactOut: true, slippageBps: SLIPPAGE_BPS });
+const needed = buy.src.amount; // pay-token units the example will spend
 const have = await erc20.balanceOf(aliasAddress);
 console.log(`alias ${PAY}: have ${have} · need ${needed} for this buy`);
 
 if (have < needed) {
-  const fundMutez = Math.round(FUND_XTZ * 1e6);
-  const fundWei = (BigInt(fundMutez) * 10n ** 12n).toString();
-  const q = new URLSearchParams({ src: NATIVE_XTZ, dst: payToken.address, amount: fundWei, from: aliasAddress, receiver: aliasAddress, slippage: '3' });
-  const fundSwap = (await fetch(`${RS_API}/api/v6.1/${CHAIN_ID}/swap?${q}`).then((r) => r.json())) as { dstAmount: string; tx: { to: string; data: string } };
-  console.log(`fund: swap ${FUND_XTZ} XTZ -> ~${fundSwap.dstAmount} ${PAY} units (router ${fundSwap.tx.to})`);
-  await (await buyer.contract.transfer({
-    to: GATEWAY, amount: fundMutez, mutez: true,
-    parameter: { entrypoint: 'call_evm', value: { prim: 'Pair', args: [{ string: fundSwap.tx.to }, { string: SWAP_SIG }, { bytes: fundSwap.tx.data.slice(10) }, { prim: 'None' }] } },
-    gasLimit: 500_000, storageLimit: 2_000, fee: 150_000,
-  })).confirmation();
+  const fundMutez = BigInt(Math.round(FUND_XTZ * 1e6));
+  // fund = XTZ -> payToken (exact-in), output stays on the alias as ERC20
+  const { ops: fundOps, details: fund } = await swapper.prepareSwap({ account: buyerMichelsonAddress, src: XTZ, dst: payToken, amount: fundMutez, slippageBps: 300 });
+  console.log(`fund: swap ${FUND_XTZ} XTZ -> ~${fund.dst.expected} ${PAY} units (router ${fund.router})`);
+  await sendGroup(buyer, fundOps);
   await new Promise((r) => setTimeout(r, 4000));
   console.log(`alias ${PAY} now = ${await erc20.balanceOf(aliasAddress)}`);
 } else {
   console.log(`alias already funded — skip`);
 }
 
-console.log(`\n✅ ready. Run the example:\n   RS_API=${RS_API} ASK_ID=${askId} TOKEN=${TOKEN} PRICE_XTZ=${PRICE_XTZ} PAY=${PAY} npm run example`);
+console.log(`\n✅ ready. Run the example:\n   THREE_ROUTE_API=${THREE_ROUTE_API} ASK_ID=${askId} TOKEN=${TOKEN} PRICE_XTZ=${PRICE_XTZ} PAY=${PAY} npm run example`);
 
 function readEnvFile(rel: string): Record<string, string> {
   const out: Record<string, string> = {};

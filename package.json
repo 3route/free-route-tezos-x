@@ -1,13 +1,13 @@
 {
-  "name": "objkt-usdc-sdk",
+  "name": "3route-tezosx",
   "version": "0.1.0",
   "type": "module",
-  "description": "Tezos-driven pure-SDK: buy an objkt NFT (priced in XTZ) paying with an EVM ERC20, as one atomic Tezos op-group (call_evm approve + 3route swap to alias + fulfill_ask), no proxy contract.",
+  "description": "Prepare 3route swaps (ERC20/XTZ -> ERC20/XTZ) on Tezos X from the Michelson side as ready-to-sign Tezos ops; native-XTZ output auto-forwards to the Michelson address. Compose marketplace ops (objkt) into one atomic group.",
   "scripts": {
     "check": "tsc --noEmit",
     "setup": "tsx scripts/setup.ts",
     "reset": "tsx scripts/reset.ts",
-    "example": "tsx sdk/index.ts"
+    "example": "tsx scripts/example-buy.ts"
   },
   "dependencies": {
     "@taquito/signer": "^21.0.5",

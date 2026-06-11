@@ -1,14 +1,12 @@
 // Operation builders — the dApp's use of the pure-SDK. Mirrors sdk/index.ts (buy) and scripts/setup.ts
 // (mint+list), but signed by the connected Temple wallet (tezos.wallet.batch).
-import { MichelsonMap, OpKind } from '@taquito/taquito';
+import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind, TezosToolkit } from '@taquito/taquito';
 import type { MichelsonV1Expression } from '@taquito/rpc';
-import { AbiCoder } from 'ethers';
 import { CFG } from './config';
-import { NATIVE_XTZ, SWAP_SIG, buildCallEvm, threeRoute, tzToAlias, wrapOperationParamsWithEvmApprove } from './sdk';
-import type { ObjktContract, SwapResponse, ThreeRouteToken } from './sdk';
+import { XTZ, buildBatchTransaction, objkt, swapper, targetForMinOut } from './sdk';
+import type { ThreeRouteToken } from './sdk';
 
-const abi = AbiCoder.defaultAbiCoder();
 const MAX_GAS_PER_BATCH = 2_500_000; // stay safely under the per-op-group ceiling; split if exceeded
 
 const m = {
@@ -69,9 +67,9 @@ export interface BuyIntent {
   tokenId: string;
   priceMutez: number;
   payToken: ThreeRouteToken;
-  payAmount: string; // srcAmount, raw units of payToken — STRICT (calldata is exact-input)
-  expectedOutMutez: number; // floor(dstAmount / 1e12) — expected XTZ out
-  minOutMutez: number; // floor(dstAmountMin / 1e12) — guaranteed XTZ floor (== price after our sizing)
+  payAmount: string; // details.src.amount, base units of payToken — STRICT (calldata is exact-input)
+  expectedOutMutez: number; // details.dst.expected (mutez) — expected XTZ out
+  minOutMutez: number; // details.dst.min (mutez) — guaranteed XTZ floor (== price after our sizing)
   changeMutez: number; // expectedOut - price, returned to the buyer's Michelson address (>= 0)
   slippageBps: number;
   router: string;
@@ -79,47 +77,34 @@ export interface BuyIntent {
 }
 
 export async function buildBuyBatch(
-  tezos: TezosToolkit,
   buyerMichelsonAddress: string,
   ask: { askId: string; tokenId: string; priceMutez: number },
   payToken: ThreeRouteToken,
   slippageBps: number,
-): Promise<{ ops: ParamsWithKind[]; intent: BuyIntent; quote: SwapResponse }> {
-  const aliasAddress = tzToAlias(buyerMichelsonAddress);
+): Promise<{ ops: ParamsWithKind[]; intent: BuyIntent }> {
   // The server sets the on-chain floor minOut = target × (1 − slippage). We need minOut ≥ the NFT price
-  // (else fulfill_ask reverts), so target = price / (1 − slippage), rounded UP (ceil) so minOut never lands
-  // a wei below price (the wei→mutez bridge floors, and 1 wei short would drop a whole mutez). Guard slip < 100%.
+  // (else fulfill_ask reverts), so size the exact-out target = ceil(price / (1 − slippage)). This sizing is
+  // the consumer's policy — the SDK just takes the final target. Guard slip < 100%.
   const bps = Math.min(slippageBps, 9900);
-  const priceWei = BigInt(ask.priceMutez) * 10n ** 12n;
-  const denom = BigInt(10000 - bps);
-  const targetWei = ((priceWei * 10000n + denom - 1n) / denom).toString();
-  const quote = await threeRoute.getSwap(payToken.address, NATIVE_XTZ, targetWei, aliasAddress, aliasAddress, bps / 100);
+  const target = targetForMinOut(BigInt(ask.priceMutez), bps);
 
-  // swap: call_evm(router, swap, calldata-minus-selector) — output native XTZ to the alias (auto-forwards to the Michelson address)
-  const swapOp = buildCallEvm(CFG.gateway, quote.tx.to, SWAP_SIG, quote.tx.data.slice(10));
-
-  // fulfill_ask (typed objkt contract) — paid by the bridged XTZ
-  const objkt = await tezos.contract.at<ObjktContract>(CFG.objkt);
-  const fulfillOp = objkt.methodsObject
-    .fulfill_ask({ ask_id: ask.askId, amount: '1', proxy_for: null, condition_extra: null, referrers: new MichelsonMap<string, string>() })
-    .toTransferParams({ amount: ask.priceMutez, mutez: true, gasLimit: 700_000, storageLimit: 2_000, fee: 150_000 });
-
-  // [swap, fulfill] then prepend the in-batch ERC20 approve (the SDK's wrap)
-  let ops: ParamsWithKind[] = [
-    { kind: OpKind.TRANSACTION, ...swapOp },
-    { kind: OpKind.TRANSACTION, ...fulfillOp },
-  ];
-  ops = wrapOperationParamsWithEvmApprove({
-    operationParams: ops,
-    gateway: CFG.gateway,
-    token: payToken.address,
-    spender: quote.tx.to,
-    amount: quote.srcAmount,
+  // exact-out payToken -> XTZ: ops = [approve, swap(call_evm)]; output native XTZ auto-forwards to the
+  // Michelson address. prepareSwap is offline (no toolkit, no contract fetch).
+  const { ops: swapOps, details } = await swapper.prepareSwap({
+    account: buyerMichelsonAddress,
+    src: payToken,
+    dst: XTZ,
+    amount: target,
+    exactOut: true,
+    slippageBps: bps,
   });
 
-  // wei -> mutez is floor(/1e12); the SDK sizes minOut so it floors to >= price
-  const expectedOutMutez = Number(BigInt(quote.dstAmount) / 10n ** 12n);
-  const minOutMutez = Number(BigInt(quote.dstAmountMin ?? priceWei.toString()) / 10n ** 12n);
+  // fulfill_ask (hand-encoded objkt op) — paid by the bridged XTZ. Composed into the same atomic group.
+  const fulfillOp = objkt.buildFulfillAsk({ marketplace: CFG.objkt, askId: ask.askId, amountMutez: BigInt(ask.priceMutez) });
+  const ops = buildBatchTransaction(swapOps, fulfillOp);
+
+  const expectedOutMutez = Number(details.dst.expected); // already mutez
+  const minOutMutez = Number(details.dst.min); // == price after our sizing
   const changeMutez = Math.max(0, expectedOutMutez - ask.priceMutez);
 
   const intent: BuyIntent = {
@@ -127,19 +112,26 @@ export async function buildBuyBatch(
     tokenId: ask.tokenId,
     priceMutez: ask.priceMutez,
     payToken,
-    payAmount: quote.srcAmount,
+    payAmount: details.src.amount.toString(),
     expectedOutMutez,
     minOutMutez,
     changeMutez,
-    slippageBps,
-    router: quote.tx.to,
+    slippageBps: bps,
+    router: details.router,
     steps: [
       { kind: 'approve', detail: `approve exactly ${payToken.symbol} to the 3route router` },
       { kind: 'swap (call_evm)', detail: `${payToken.symbol} → native XTZ to your alias → auto-forwards to your Michelson address` },
       { kind: 'fulfill_ask', detail: `buy ask#${ask.askId}, pay ${ask.priceMutez / 1e6} XTZ` },
     ],
   };
-  return { ops, intent, quote };
+  return { ops, intent };
+}
+
+// Send a prepared op group as ONE atomic wallet batch (the buy must stay atomic — never chunked).
+export async function sendWalletGroup(tezos: TezosToolkit, ops: ParamsWithKind[]): Promise<string> {
+  const op = await tezos.wallet.batch().with(ops as never).send();
+  await op.confirmation();
+  return op.opHash;
 }
 
 // ---------------- send (chunked under the gas ceiling), via the wallet ----------------

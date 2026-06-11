@@ -19,9 +19,9 @@ const SORTS: SelectOption<SortKey>[] = [
 
 export function BuyerPanel() {
   const { listings, loading, refresh } = useListings();
-  const { connected, aliasAddress, connect } = useWallet();
+  const { connected, connect } = useWallet();
   const { payTokens } = useTokens();
-  const { currency, setCurrency, token, convert, rateLabel, updatedAt, error } = usePriceCurrency(payTokens, aliasAddress);
+  const { currency, setCurrency, token, convert, rateLabel, updatedAt, error } = usePriceCurrency(payTokens);
   const [sel, setSel] = useState<Listing | null>(null);
   const [sort, setSort] = useState<SortKey>('new');
 

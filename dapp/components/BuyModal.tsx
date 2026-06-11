@@ -4,7 +4,7 @@ import type { ParamsWithKind } from '@taquito/taquito';
 import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
 import { useBalances, useTokens } from '@/lib/hooks';
-import { buildBuyBatch, sendChunked, type BuyIntent } from '@/lib/ops';
+import { buildBuyBatch, sendWalletGroup, type BuyIntent } from '@/lib/ops';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
@@ -66,7 +66,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     setErr(null);
     setOps(null); // never allow sending stale ops mid-requote (Buy is also disabled while quoting)
     // keep the previous `intent` on screen (stale-while-revalidate) so the panel doesn't collapse/jump
-    buildBuyBatch(tezos, michelsonAddress, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
+    buildBuyBatch(michelsonAddress, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
       .then(({ ops: o, intent: it }) => {
         if (!cancelled) {
           setOps(o);
@@ -95,8 +95,8 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     setErr(null);
     try {
       log.pending(`Buying ask#${listing.askId} with ${token.symbol}…`);
-      const hashes = await sendChunked(tezos, ops, (h) => log.ok('operation confirmed', h));
-      log.ok(`Bought "${nftName(listing.tokenId)}" → delivered to your Michelson address`, hashes.join(' '));
+      const hash = await sendWalletGroup(tezos, ops);
+      log.ok(`Bought "${nftName(listing.tokenId)}" → delivered to your Michelson address`, hash);
       refresh();
       onClose();
     } catch (e) {

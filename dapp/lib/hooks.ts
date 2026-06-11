@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NATIVE_XTZ, threeRoute } from './sdk';
+import { XTZ_ADDRESS, isXtz, targetForMinOut, threeRoute, xtzMutezToWei } from './sdk';
 import type { ThreeRouteToken } from './sdk';
 import { fetchErc20Balance, fetchListings, fetchOwned, fetchXtzBalance, type Listing, type OwnedToken } from './tzkt';
 import { useUi } from './ui';
@@ -19,14 +19,10 @@ export function useTokens() {
       .then((t) => setTokens([...t].sort((a, b) => a.symbol.localeCompare(b.symbol))))
       .catch((e: Error) => setError(e.message));
   }, []);
-  // payment/quote tokens = real ERC20s: drop the native-XTZ sentinel and any plain "XTZ" registry entry
-  // (those are the native currency itself — redundant with the XTZ option / pointless to swap XTZ->XTZ).
-  // Memoized so its identity is stable across renders — otherwise dependent effects (balances, rate)
-  // would refetch on every render.
-  const payTokens = useMemo(
-    () => tokens.filter((t) => t.address.toLowerCase() !== NATIVE_XTZ.toLowerCase() && t.symbol.toUpperCase() !== 'XTZ'),
-    [tokens],
-  );
+  // payment/quote tokens = real ERC20s: drop the native-XTZ registry entry (the native currency itself —
+  // redundant with the XTZ option / pointless to swap XTZ->XTZ). Memoized so its identity is stable across
+  // renders — otherwise dependent effects (balances, rate) would refetch on every render.
+  const payTokens = useMemo(() => tokens.filter((t) => !isXtz(t.address)), [tokens]);
   return { tokens, payTokens, error };
 }
 
@@ -62,17 +58,15 @@ export function useBalances(aliasAddress: string | null, michelsonAddress: strin
 // Live price-currency converter. Pulls ONE exact-out rate (token per 1 XTZ) from the 3route /swap
 // endpoint and applies it to every listing; auto-refreshes every 30s. currency 'XTZ' = no conversion.
 const REF_XTZ_MUTEZ = 1_000_000n; // 1 XTZ
-const REF_XTZ_WEI = (REF_XTZ_MUTEZ * 10n ** 12n).toString();
-const QUOTE_ADDR = '0x000000000000000000000000000000000000dEaD'; // placeholder for keyless rate quotes
+const REF_XTZ_WEI = xtzMutezToWei(REF_XTZ_MUTEZ); // 1 XTZ in wei (EVM side)
 
-export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string | null) {
+export function usePriceCurrency(payTokens: ThreeRouteToken[]) {
   const currency = useUi((s) => s.currency); // global — shared with the buy modal
   const setCurrency = useUi((s) => s.setCurrency);
   const [rate, setRate] = useState<bigint | null>(null); // token base units per 1 XTZ
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const token = payTokens.find((t) => t.address === currency) ?? null;
-  const addr = refAddr || QUOTE_ADDR;
   const slippageBps = useUi((s) => s.slippageBps); // global — keeps card amounts in sync with the buy
 
   // default to the first pay-token once the registry loads (runs once; user can switch / toggle to XTZ after)
@@ -89,7 +83,8 @@ export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string 
     let cancelled = false;
     const fetchRate = async () => {
       try {
-        const q = await threeRoute.getSwap(token.address, NATIVE_XTZ, REF_XTZ_WEI, addr, addr, 1);
+        // a rate quote needs no address — from/receiver are optional on getQuote.
+        const q = await threeRoute.getQuote({ src: token.address, dst: XTZ_ADDRESS, amount: REF_XTZ_WEI, exactOut: true, slippagePercent: 1 });
         if (!cancelled) {
           setRate(BigInt(q.srcAmount));
           setUpdatedAt(Date.now());
@@ -105,13 +100,14 @@ export function usePriceCurrency(payTokens: ThreeRouteToken[], refAddr?: string 
       cancelled = true;
       clearInterval(id);
     };
-  }, [token, addr]);
+  }, [token]);
 
   // listing price (mutez) -> selected token base units, with the global slippage buffer applied
   // (target = price / (1 - slip)) so the card amount matches what the buy will actually cost.
   const convert = (priceMutez: string | number): bigint | null => {
     if (!token || rate === null) return null;
-    return (BigInt(priceMutez) * rate * 10000n) / (REF_XTZ_MUTEZ * BigInt(10000 - slippageBps));
+    // buffer the price by the same exact-out sizing the buy uses, then apply the rate (token per 1 XTZ).
+    return (targetForMinOut(BigInt(priceMutez), slippageBps) * rate) / REF_XTZ_MUTEZ;
   };
 
   // bidirectional rate label: "1 XTZ ≈ x SYM · 1 SYM ≈ y XTZ"

@@ -28,7 +28,7 @@ Connect Temple configured for **Tezos X previewnet** (custom network, RPC
 ## Config
 
 All wiring has working previewnet defaults in `lib/config.ts`; override via `.env.local` (see
-`.env.local.example`). `RS_API` (server-side) points the proxy at the 3route server.
+`.env.local.example`). `THREE_ROUTE_API` (server-side) points the proxy at the 3route server.
 
 ## Layout
 

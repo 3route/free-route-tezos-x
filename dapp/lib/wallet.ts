@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { TezosToolkit } from '@taquito/taquito';
 import { BeaconWallet } from '@taquito/beacon-wallet';
 import { CFG, NETWORK_NAME } from './config';
-import { tzToAlias } from './sdk';
+import { michelsonToAlias } from './sdk';
 import { log } from './log';
 
 interface WalletState {
@@ -28,7 +28,7 @@ const makeWallet = (): BeaconWallet =>
 const bind = (wallet: BeaconWallet, michelsonAddress: string) => {
   const tezos = new TezosToolkit(CFG.tezRpc);
   tezos.setWalletProvider(wallet);
-  return { connected: true, michelsonAddress, aliasAddress: tzToAlias(michelsonAddress), tezos, wallet, connecting: false };
+  return { connected: true, michelsonAddress, aliasAddress: michelsonToAlias(michelsonAddress), tezos, wallet, connecting: false };
 };
 
 export const useWallet = create<WalletState>((set, get) => ({
@@ -61,7 +61,7 @@ export const useWallet = create<WalletState>((set, get) => ({
       await wallet.requestPermissions();
       const michelsonAddress = await wallet.getPKH();
       set(bind(wallet, michelsonAddress));
-      log.ok(`Wallet connected: ${michelsonAddress}`, `alias ${tzToAlias(michelsonAddress)}`);
+      log.ok(`Wallet connected: ${michelsonAddress}`, `alias ${michelsonToAlias(michelsonAddress)}`);
     } catch (e) {
       set({ connecting: false });
       log.err('Wallet connection failed', (e as Error).message);
