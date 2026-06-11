@@ -19,7 +19,7 @@ const SORTS: SelectOption<SortKey>[] = [
 
 export function BuyerPanel() {
   const { listings, loading, refresh } = useListings();
-  const { connected, connect } = useWallet();
+  const { connected, michelsonAddress, connect } = useWallet();
   const { payTokens } = useTokens();
   const { currency, setCurrency, token, convert, rateLabel, updatedAt, error } = usePriceCurrency(payTokens);
   const [sel, setSel] = useState<Listing | null>(null);
@@ -110,6 +110,7 @@ export function BuyerPanel() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {sorted.map((l) => {
           const inToken = currency !== 'XTZ' ? convert(l.priceMutez) : null;
+          const isOwn = connected && l.seller === michelsonAddress; // objkt blocks buying your own ask (M_NO_SELF_FULFILL)
           return (
             <div key={l.askId} className="card flex flex-col p-3">
               <div
@@ -127,18 +128,32 @@ export function BuyerPanel() {
                 <span className="text-xs text-slate-500">XTZ</span>
               </div>
 
-              <div className="mt-auto pt-2 text-[11px] text-slate-600">seller {short(l.seller, 5)}</div>
-              <button
-                className="btn-primary mt-2 flex-col gap-0 !py-2 leading-tight"
-                onClick={() => (connected ? setSel(l) : void connect())}
-              >
-                <span>Buy</span>
-                {token && currency !== 'XTZ' && (
-                  <span className="max-w-full truncate text-[11px] font-normal text-white/85">
-                    ≈ {inToken === null ? '…' : fmtSig(inToken, token.decimals, 3)} {token.symbol}
-                  </span>
-                )}
-              </button>
+              <div className="mt-auto pt-2 text-[11px] text-slate-600">
+                seller {short(l.seller, 5)}
+                {isOwn && <span className="ml-1 text-amber-400">· you</span>}
+              </div>
+              {isOwn ? (
+                <button
+                  disabled
+                  title="objkt blocks buying your own listing (M_NO_SELF_FULFILL) — connect a different account to buy"
+                  className="btn-primary mt-2 flex-col gap-0 !py-2 leading-tight cursor-not-allowed opacity-50"
+                >
+                  <span>Your listing</span>
+                  <span className="text-[11px] font-normal text-white/85">can’t buy your own</span>
+                </button>
+              ) : (
+                <button
+                  className="btn-primary mt-2 flex-col gap-0 !py-2 leading-tight"
+                  onClick={() => (connected ? setSel(l) : void connect())}
+                >
+                  <span>Buy</span>
+                  {token && currency !== 'XTZ' && (
+                    <span className="max-w-full truncate text-[11px] font-normal text-white/85">
+                      ≈ {inToken === null ? '…' : fmtSig(inToken, token.decimals, 3)} {token.symbol}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
           );
         })}

@@ -98,6 +98,10 @@ export function SellerPanel() {
           Mints fresh tokens into the test FA2 and lists each as an XTZ-priced ask on objkt — one click (auto-split into
           batches under the gas ceiling). Names are generated; prices are editable per item.
         </p>
+        <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
+          ⚠️ objkt blocks buying your own listing (<span className="font-mono">M_NO_SELF_FULFILL</span>). To test a purchase,
+          switch to Buyer mode <span className="font-medium">with a different account</span> than the one that listed these.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
