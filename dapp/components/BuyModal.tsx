@@ -4,7 +4,7 @@ import type { ParamsWithKind } from '@taquito/taquito';
 import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
 import { useBalances, useTokens } from '@/lib/hooks';
-import { buildBuyBatch, sendWalletGroup, type BuyIntent } from '@/lib/ops';
+import { buildBuyBatch, sendWalletGroup, type BuyDetails } from '@/lib/ops';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
@@ -50,7 +50,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
   const [customSlippage, setCustomSlippage] = useState(() =>
     SLIPPAGES.some((s) => s.bps === slippageBps) ? '' : String(slippageBps / 100),
   );
-  const [intent, setIntent] = useState<BuyIntent | null>(null);
+  const [details, setDetails] = useState<BuyDetails | null>(null);
   const [ops, setOps] = useState<ParamsWithKind[] | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [buying, setBuying] = useState(false);
@@ -65,18 +65,18 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     setQuoting(true);
     setErr(null);
     setOps(null); // never allow sending stale ops mid-requote (Buy is also disabled while quoting)
-    // keep the previous `intent` on screen (stale-while-revalidate) so the panel doesn't collapse/jump
+    // keep the previous `details` on screen (stale-while-revalidate) so the panel doesn't collapse/jump
     buildBuyBatch(michelsonAddress, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
-      .then(({ ops: o, intent: it }) => {
+      .then(({ ops: o, details: d }) => {
         if (!cancelled) {
           setOps(o);
-          setIntent(it);
+          setDetails(d);
         }
       })
       .catch((e: Error) => {
         if (!cancelled) {
           setErr(e.message);
-          setIntent(null);
+          setDetails(null);
         }
       })
       .finally(() => !cancelled && setQuoting(false));
@@ -86,8 +86,8 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
   }, [tezos, michelsonAddress, token, slippageBps, listing, priceMutez]);
 
   const bal = token ? erc[token.address] ?? 0n : 0n;
-  const need = intent ? BigInt(intent.payAmount) : 0n;
-  const enough = !intent || bal >= need;
+  const need = details ? BigInt(details.payAmount) : 0n;
+  const enough = !details || bal >= need;
 
   async function confirm() {
     if (!tezos || !ops || !token) return;
@@ -190,33 +190,33 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
           {slippageBps < 10 && <p className="mt-1.5 text-[11px] text-amber-400">Very low — the swap may revert on a thin pool.</p>}
         </div>
 
-        {/* intent */}
+        {/* review */}
         <div className="rounded-xl border border-edge bg-ink/50 p-3 text-sm">
           <div className="mb-2 flex items-center justify-between">
-            <span className="label">Intent</span>
+            <span className="label">Review</span>
           </div>
           <div className="relative min-h-[15rem]">
-            {err && !intent && (
+            {err && !details && (
               <div className="grid h-[15rem] place-items-center text-center text-xs text-rose-400">{err}</div>
             )}
-            {intent && token && (
+            {details && token && (
             <div className={`space-y-2 transition-opacity ${quoting ? 'opacity-40' : 'opacity-100'}`}>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">
                   You pay <span className="text-[10px] uppercase tracking-wide text-slate-600">exact</span>
                 </span>
                 <span className="font-mono">
-                  {fmtSig(intent.payAmount, token.decimals, 6)} {token.symbol}
+                  {fmtSig(details.payAmount, token.decimals, 6)} {token.symbol}
                 </span>
               </div>
               <div className="flex items-start justify-between">
                 <span className="text-slate-400">You receive</span>
                 <span className="text-right font-mono">
                   <span className="block">
-                    ≈ {mutezToXtz(intent.expectedOutMutez, 6)} XTZ{' '}
+                    ≈ {mutezToXtz(details.expectedOutMutez, 6)} XTZ{' '}
                     <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
                   </span>
-                  <span className="block text-xs text-slate-500">≥ {mutezToXtz(intent.minOutMutez, 6)} XTZ guaranteed</span>
+                  <span className="block text-xs text-slate-500">≥ {mutezToXtz(details.minOutMutez, 6)} XTZ guaranteed</span>
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -227,7 +227,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                 <span className="text-slate-400">Change → your Michelson address</span>
                 <span className="text-right font-mono">
                   <span className="block">
-                    ≈ {mutezToXtz(intent.changeMutez, 6)} XTZ{' '}
+                    ≈ {mutezToXtz(details.changeMutez, 6)} XTZ{' '}
                     <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
                   </span>
                   <span className="block text-xs text-slate-500">
@@ -238,19 +238,19 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
               <div className="flex items-start justify-between">
                 <span className="text-slate-400">Slippage</span>
                 <span className="max-w-[60%] text-right text-xs text-slate-500">
-                  {intent.slippageBps / 100}% — if output &lt; {mutezToXtz(intent.minOutMutez, 6)} XTZ the purchase reverts ({token.symbol} refunded)
+                  {details.slippageBps / 100}% — if output &lt; {mutezToXtz(details.minOutMutez, 6)} XTZ the purchase reverts ({token.symbol} refunded)
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Route</span>
                 <span className="font-mono text-xs">
-                  {token.symbol} → XTZ · 3route <Addr value={intent.router} len={5} />
+                  {token.symbol} → XTZ · 3route <Addr value={details.router} len={5} />
                 </span>
               </div>
               <div className="mt-2 border-t border-edge pt-2">
                 <div className="label mb-1">One signature · atomic op-group</div>
                 <ol className="space-y-1 text-xs text-slate-400">
-                  {intent.steps.map((s, i) => (
+                  {details.steps.map((s, i) => (
                     <li key={i} className="flex gap-2">
                       <span className="text-slate-600">{i + 1}.</span>
                       <span>

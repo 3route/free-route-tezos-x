@@ -63,14 +63,14 @@ export function buildMintListOps(seller: string, items: SellerItem[]): ParamsWit
 }
 
 // ---------------- BUYER: pay an ERC20 for an XTZ-priced ask ----------------
-export interface BuyIntent {
+export interface BuyDetails {
   askId: string;
   tokenId: string;
   priceMutez: number;
   payToken: ThreeRouteToken;
-  payAmount: string; // details.src.amount, base units of payToken — STRICT (calldata is exact-input)
-  expectedOutMutez: number; // details.dst.expected (mutez) — expected XTZ out
-  minOutMutez: number; // details.dst.min (mutez) — guaranteed XTZ floor (== price after our sizing)
+  payAmount: string; // swap.src.amount, base units of payToken — STRICT (calldata is exact-input)
+  expectedOutMutez: number; // swap.dst.expected (mutez) — expected XTZ out
+  minOutMutez: number; // swap.dst.min (mutez) — guaranteed XTZ floor (== price after our sizing)
   changeMutez: number; // expectedOut - price, returned to the buyer's Michelson address (>= 0)
   slippageBps: number;
   router: string;
@@ -82,7 +82,7 @@ export async function buildBuyBatch(
   ask: { askId: string; tokenId: string; priceMutez: number },
   payToken: ThreeRouteToken,
   slippageBps: number,
-): Promise<{ ops: ParamsWithKind[]; intent: BuyIntent }> {
+): Promise<{ ops: ParamsWithKind[]; details: BuyDetails }> {
   // The server sets the on-chain floor minOut = target × (1 − slippage). We need minOut ≥ the NFT price
   // (else fulfill_ask reverts), so size the exact-out target = ceil(price / (1 − slippage)). This sizing is
   // the consumer's policy — the SDK just takes the final target. Guard slip < 100%.
@@ -91,7 +91,7 @@ export async function buildBuyBatch(
 
   // exact-out payToken -> XTZ: ops = [approve, swap(call_evm)]; output native XTZ auto-forwards to the
   // Michelson address. prepareSwap is offline (no toolkit, no contract fetch).
-  const { ops: swapOps, details } = await swapper.prepareSwap({
+  const { ops: swapOps, details: swap } = await swapper.prepareSwap({
     account: buyerMichelsonAddress,
     src: payToken,
     dst: XTZ,
@@ -104,28 +104,28 @@ export async function buildBuyBatch(
   const fulfillOp = objkt.buildFulfillAsk({ marketplace: CFG.objkt, askId: ask.askId, amountMutez: BigInt(ask.priceMutez) });
   const ops = buildBatchTransaction(swapOps, fulfillOp);
 
-  const expectedOutMutez = Number(details.dst.expected); // already mutez
-  const minOutMutez = Number(details.dst.min); // == price after our sizing
+  const expectedOutMutez = Number(swap.dst.expected); // already mutez
+  const minOutMutez = Number(swap.dst.min); // == price after our sizing
   const changeMutez = Math.max(0, expectedOutMutez - ask.priceMutez);
 
-  const intent: BuyIntent = {
+  const details: BuyDetails = {
     askId: ask.askId,
     tokenId: ask.tokenId,
     priceMutez: ask.priceMutez,
     payToken,
-    payAmount: details.src.amount.toString(),
+    payAmount: swap.src.amount.toString(),
     expectedOutMutez,
     minOutMutez,
     changeMutez,
     slippageBps: bps,
-    router: details.router,
+    router: swap.router,
     steps: [
-      { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(details.src.amount, payToken.decimals, 6)} ${payToken.symbol} to the 3route router` },
+      { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(swap.src.amount, payToken.decimals, 6)} ${payToken.symbol} to the 3route router` },
       { kind: 'swap (call_evm)', detail: `${payToken.symbol} → native XTZ to your alias → auto-forwards to your Michelson address` },
       { kind: 'fulfill_ask', detail: `buy ask#${ask.askId}, pay ${ask.priceMutez / 1e6} XTZ` },
     ],
   };
-  return { ops, intent };
+  return { ops, details };
 }
 
 // Send a prepared op group as ONE atomic wallet batch (the buy must stay atomic — never chunked).

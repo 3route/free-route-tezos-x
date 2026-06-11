@@ -1,4 +1,4 @@
-// swap.ts — the high-level facade. `prepareSwap` turns a swap intent (any of ERC20/XTZ -> ERC20/XTZ, exact-in
+// swap.ts — the high-level facade. `prepareSwap` turns a swap request (any of ERC20/XTZ -> ERC20/XTZ, exact-in
 // or exact-out) into ready-to-sign Tezos ops + a human-readable SwapDetails, all called from the Michelson side.
 // It is THIN: it does not size exact-out targets (that policy lives in the consumer — see targetForMinOut) and
 // it does not send. The only cleverness is the unit boundary (XTZ is mutez to the consumer, wei to the EVM API)
