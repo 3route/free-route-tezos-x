@@ -6,6 +6,7 @@ import type { MichelsonV1Expression } from '@taquito/rpc';
 import { CFG } from './config';
 import { XTZ, buildBatchTransaction, objkt, swapper, targetForMinOut } from './sdk';
 import type { ThreeRouteToken } from './sdk';
+import { fmtSig } from './format';
 
 const MAX_GAS_PER_BATCH = 2_500_000; // stay safely under the per-op-group ceiling; split if exceeded
 
@@ -119,7 +120,7 @@ export async function buildBuyBatch(
     slippageBps: bps,
     router: details.router,
     steps: [
-      { kind: 'approve', detail: `approve exactly ${payToken.symbol} to the 3route router` },
+      { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(details.src.amount, payToken.decimals, 6)} ${payToken.symbol} to the 3route router` },
       { kind: 'swap (call_evm)', detail: `${payToken.symbol} → native XTZ to your alias → auto-forwards to your Michelson address` },
       { kind: 'fulfill_ask', detail: `buy ask#${ask.askId}, pay ${ask.priceMutez / 1e6} XTZ` },
     ],
