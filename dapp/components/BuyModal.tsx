@@ -27,7 +27,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
   const { tezos, michelsonAddress, aliasAddress } = useWallet();
   const refresh = useUi((s) => s.refresh);
   const { payTokens } = useTokens();
-  const { erc } = useBalances(aliasAddress, michelsonAddress, payTokens);
+  const { erc } = useBalances();
 
   // selected pay-token comes from the GLOBAL currency (shared with the listing switcher); fall back to
   // the first token when the listing is in XTZ-only mode.

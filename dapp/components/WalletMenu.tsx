@@ -13,7 +13,7 @@ const evmLink = (a: string) => `${CFG.evmExplorer}/address/${a}`;
 export function WalletMenu() {
   const { connected, michelsonAddress, aliasAddress, connect, disconnect, connecting } = useWallet();
   const { payTokens } = useTokens();
-  const { xtz, erc, loading, refresh } = useBalances(aliasAddress, michelsonAddress, payTokens);
+  const { xtz, erc, loading, refresh } = useBalances();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 

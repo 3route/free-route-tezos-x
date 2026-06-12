@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { create } from 'zustand';
 import { XTZ_ADDRESS, isXtz, threeRoute, xtzMutezToWei } from './sdk';
 import type { ThreeRouteToken } from './sdk';
 import { fetchErc20Balance, fetchListings, fetchOwned, fetchXtzBalance, type Listing, type OwnedToken } from './tzkt';
@@ -26,33 +27,64 @@ export function useTokens() {
   return { tokens, payTokens, error };
 }
 
-// Michelson-address XTZ balance + alias ERC20 balances.
-export function useBalances(aliasAddress: string | null, michelsonAddress: string | null, payTokens: ThreeRouteToken[]) {
-  const [xtz, setXtz] = useState<bigint | null>(null);
-  const [erc, setErc] = useState<Record<string, bigint>>({});
-  const [loading, setLoading] = useState(false);
-  const bump = useUi((s) => s.bump);
+// ---- Global balances: ONE shared source of truth, polled on an interval ----
+// Michelson-address XTZ balance + alias ERC20 balances, held in a module store so WalletMenu and the buy modal
+// read the SAME values (no duplicate fetching). A single useBalancesSync mount keeps them fresh.
+interface BalancesState {
+  xtz: bigint | null; // Michelson-address XTZ (mutez)
+  erc: Record<string, bigint>; // alias ERC20 balances, keyed by token address
+  loading: boolean;
+  updatedAt: number | null;
+  apply: (p: Partial<Pick<BalancesState, 'xtz' | 'erc' | 'loading' | 'updatedAt'>>) => void;
+}
+const useBalancesStore = create<BalancesState>((set) => ({
+  xtz: null,
+  erc: {},
+  loading: false,
+  updatedAt: null,
+  apply: (p) => set(p),
+}));
 
-  const refresh = useCallback(async () => {
-    if (!aliasAddress || !michelsonAddress) return;
-    setLoading(true);
-    try {
-      setXtz(await fetchXtzBalance(michelsonAddress).catch(() => 0n));
-      const entries = await Promise.all(
-        payTokens.map(async (t) => [t.address, await fetchErc20Balance(t.address, aliasAddress).catch(() => 0n)] as const),
-      );
-      setErc(Object.fromEntries(entries));
-    } finally {
-      setLoading(false);
-    }
+const BALANCES_REFRESH_MS = 30_000; // same cadence as the rate quote and the buy re-quote
+
+// Mount ONCE (top-level) with the connected addresses + pay tokens. Fetches now, on every global bump (refresh),
+// and every 30s; writes into the shared store. No-op until both addresses and the token list are available.
+export function useBalancesSync(aliasAddress: string | null, michelsonAddress: string | null, payTokens: ThreeRouteToken[]) {
+  const apply = useBalancesStore((s) => s.apply);
+  const bump = useUi((s) => s.bump);
+  useEffect(() => {
+    if (!aliasAddress || !michelsonAddress || !payTokens.length) return;
+    let cancelled = false;
+    const fetchAll = async () => {
+      apply({ loading: true });
+      try {
+        const [xtz, entries] = await Promise.all([
+          fetchXtzBalance(michelsonAddress).catch(() => 0n),
+          Promise.all(payTokens.map(async (t) => [t.address, await fetchErc20Balance(t.address, aliasAddress).catch(() => 0n)] as const)),
+        ]);
+        if (!cancelled) apply({ xtz, erc: Object.fromEntries(entries), updatedAt: Date.now() });
+      } finally {
+        if (!cancelled) apply({ loading: false });
+      }
+    };
+    void fetchAll();
+    const id = setInterval(fetchAll, BALANCES_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aliasAddress, michelsonAddress, payTokens, bump]);
+}
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { xtz, erc, loading, refresh };
+// Read the shared balances. `refresh` triggers a global bump, which re-runs useBalancesSync.
+export function useBalances() {
+  const xtz = useBalancesStore((s) => s.xtz);
+  const erc = useBalancesStore((s) => s.erc);
+  const loading = useBalancesStore((s) => s.loading);
+  const updatedAt = useBalancesStore((s) => s.updatedAt);
+  const refresh = useUi((s) => s.refresh);
+  return { xtz, erc, loading, updatedAt, refresh };
 }
 
 // Live price-currency converter. Pulls ONE exact-out rate (token per 1 XTZ) from the 3route /swap

@@ -7,10 +7,14 @@ import { OwnedPanel } from '@/components/OwnedPanel';
 import { LogPanel } from '@/components/LogPanel';
 import { useUi } from '@/lib/ui';
 import { useWallet } from '@/lib/wallet';
+import { useBalancesSync, useTokens } from '@/lib/hooks';
 
 export default function Page() {
   const mode = useUi((s) => s.mode);
   const restore = useWallet((s) => s.restore);
+  const { michelsonAddress, aliasAddress } = useWallet();
+  const { payTokens } = useTokens();
+  useBalancesSync(aliasAddress, michelsonAddress, payTokens); // single mount → polls + writes the shared store
   useEffect(() => {
     void restore(); // rehydrate an existing Temple session after a reload
   }, [restore]);
