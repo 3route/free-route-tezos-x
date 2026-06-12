@@ -38,7 +38,12 @@ if (!SECRET_KEY) throw new Error('set SECRET_KEY (the buyer Michelson secret key
 const tezos = new TezosToolkit(MICHELSON_RPC);
 tezos.setProvider({ signer: new InMemorySigner(SECRET_KEY) });
 tezos.setForgerProvider(tezos.getFactory(RpcForger)()); // previewnet rejects local forging
-const swapper = new ThreeRouteTezosX({ network: NETWORK }); // baseUrl defaults to NETWORK.apiBaseUrl
+// A hosted 3route server needs an HTTP Basic api key; the local dev server is keyless. This script runs in Node
+// (server-side), so the key goes straight on the client. Set THREE_ROUTE_API_KEY='YourApiKey', or omit for local.
+const swapper = new ThreeRouteTezosX({ 
+    network: NETWORK, 
+    apiKey: process.env.THREE_ROUTE_API_KEY 
+}); // baseUrl defaults to NETWORK.apiBaseUrl
 
 const account = await tezos.signer.publicKeyHash();
 const alias = michelsonToAlias(account); // the EVM-side identity that holds the ERC20 / runs the swap
