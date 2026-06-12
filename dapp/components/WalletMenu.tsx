@@ -56,31 +56,34 @@ export function WalletMenu() {
             </button>
           </div>
 
-          <div className="space-y-1.5 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">XTZ</span>
-              <span className="font-mono">{xtz === null ? '…' : mutezToXtz(xtz, 4)}</span>
-            </div>
-            {payTokens.map((t) => (
-              <div key={t.address} className="flex items-center justify-between">
-                <span className="text-slate-400">{t.symbol}</span>
-                <span className="font-mono">{erc[t.address] === undefined ? '…' : fmtSig(erc[t.address] ?? 0n, t.decimals, 4)}</span>
+          <div className="text-sm">
+            {/* Michelson side — native XTZ on the tz1 address (header carries the address) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wide text-slate-600">Michelson</span>
+                <a href={tzktLink(michelsonAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-accent hover:underline" title={michelsonAddress ?? ''}>
+                  {short(michelsonAddress ?? '', 6)}
+                </a>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-3 space-y-1 border-t border-edge pt-2 text-[11px] text-slate-500">
-            <div className="flex items-center justify-between">
-              <span>Michelson address</span>
-              <a href={tzktLink(michelsonAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-accent hover:underline" title={michelsonAddress ?? ''}>
-                {short(michelsonAddress ?? '', 6)}
-              </a>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">XTZ</span>
+                <span className="font-mono">{xtz === null ? '…' : mutezToXtz(xtz, 4)}</span>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span>EVM alias</span>
-              <a href={evmLink(aliasAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-accent hover:underline" title={aliasAddress ?? ''}>
-                {short(aliasAddress ?? '', 6)}
-              </a>
+            {/* EVM side — ERC20s held by the alias (header carries the alias address) */}
+            <div className="mt-3 space-y-1.5 border-t border-edge pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wide text-slate-600">EVM alias</span>
+                <a href={evmLink(aliasAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-accent hover:underline" title={aliasAddress ?? ''}>
+                  {short(aliasAddress ?? '', 6)}
+                </a>
+              </div>
+              {payTokens.map((t) => (
+                <div key={t.address} className="flex items-center justify-between">
+                  <span className="text-slate-400">{t.symbol}</span>
+                  <span className="font-mono">{erc[t.address] === undefined ? '…' : fmtSig(erc[t.address] ?? 0n, t.decimals, 4)}</span>
+                </div>
+              ))}
             </div>
           </div>
 
