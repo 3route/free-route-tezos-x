@@ -8,6 +8,7 @@ import { buildBuyBatch, sendWalletGroup, type BuyDetails } from '@/lib/ops';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
+import { CFG } from '@/lib/config';
 import { fetchErc20Balance, fetchXtzBalance, type Listing } from '@/lib/tzkt';
 import { buildBuyReceipt, type BuyReceipt } from '@/lib/receipt';
 import { ReceiptModal } from './ReceiptModal';
@@ -46,35 +47,50 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
   const [buying, setBuying] = useState(false);
   const [finalizing, setFinalizing] = useState(false); // tx sent, building the on-chain receipt
   const [err, setErr] = useState<string | null>(null);
+  const [quotedAt, setQuotedAt] = useState<number | null>(null); // last successful quote (for the 30s countdown)
 
   const priceMutez = Number(listing.priceMutez);
 
-  // (re)quote whenever the pay token or slippage changes
+  // (re)quote on token/slippage change, and auto-refresh every 30s (re-hits the 3route SDK)
   useEffect(() => {
     if (!tezos || !michelsonAddress || !token) return;
     let cancelled = false;
-    setQuoting(true);
-    setErr(null);
-    setOps(null); // never allow sending stale ops mid-requote (Buy is also disabled while quoting)
-    // keep the previous `details` on screen (stale-while-revalidate) so the panel doesn't collapse/jump
-    buildBuyBatch(michelsonAddress, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
-      .then(({ ops: o, details: d }) => {
-        if (!cancelled) {
-          setOps(o);
-          setDetails(d);
-        }
-      })
-      .catch((e: Error) => {
-        if (!cancelled) {
-          setErr(e.message);
-          setDetails(null);
-        }
-      })
-      .finally(() => !cancelled && setQuoting(false));
+    const requote = () => {
+      setQuoting(true);
+      setErr(null);
+      setOps(null); // never allow sending stale ops mid-requote (Buy is also disabled while quoting)
+      // keep the previous `details` on screen (stale-while-revalidate) so the panel doesn't collapse/jump
+      buildBuyBatch(michelsonAddress, { askId: listing.askId, tokenId: listing.tokenId, priceMutez }, token, slippageBps)
+        .then(({ ops: o, details: d }) => {
+          if (!cancelled) {
+            setOps(o);
+            setDetails(d);
+            setQuotedAt(Date.now());
+          }
+        })
+        .catch((e: Error) => {
+          if (!cancelled) {
+            setErr(e.message);
+            setDetails(null);
+          }
+        })
+        .finally(() => !cancelled && setQuoting(false));
+    };
+    requote();
+    const id = setInterval(requote, 30_000);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [tezos, michelsonAddress, token, slippageBps, listing, priceMutez]);
+
+  // 1s tick for the "updating in Ns" countdown to the next 30s re-quote
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const refreshInSec = quotedAt ? Math.max(0, 30 - Math.round((now - quotedAt) / 1000)) : null;
 
   const bal = token ? erc[token.address] ?? 0n : 0n;
   const need = details ? BigInt(details.payAmount) : 0n;
@@ -205,6 +221,9 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
           </div>
           {slippageBps > 500 && <p className="mt-1.5 text-[11px] text-amber-400">High slippage — you may overpay.</p>}
           {slippageBps < 10 && <p className="mt-1.5 text-[11px] text-amber-400">Very low — the swap may revert on a thin pool.</p>}
+          <p className="mt-1.5 text-[11px] text-slate-500">
+            quote via 3route{refreshInSec !== null ? ` · updating in ${refreshInSec}s` : ''}
+          </p>
         </div>
 
         {/* review */}
@@ -229,8 +248,8 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
               {/* Michelson Side */}
               <div className="rounded-lg border border-edge p-2.5">
                 <div className="label mb-1.5">Michelson Side</div>
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between">
+                <div className="divide-y divide-edge">
+                  <div className="flex items-start justify-between pb-2">
                     <span className="text-slate-400">You receive</span>
                     <span className="text-right font-mono">
                       <span className="block">
@@ -240,18 +259,23 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                       <span className="block text-xs text-slate-500">≥ {mutezToXtz(details.minOutMutez, 6)} XTZ guaranteed</span>
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between py-2">
                     <span className="text-slate-400">NFT price</span>
                     <span className="font-mono">{mutezToXtz(priceMutez, 6)} XTZ</span>
                   </div>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between pt-2">
                     <span className="text-slate-400">Change</span>
                     <span className="text-right font-mono">
                       <span className="block">
                         ≈ {mutezToXtz(details.changeMutez, 6)} XTZ{' '}
                         <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
                       </span>
-                      <span className="block text-xs text-slate-500">returned to your account</span>
+                      <span className="block text-xs text-slate-500">
+                        returned to your{' '}
+                        <a href={`${CFG.explorer}/${michelsonAddress}`} target="_blank" rel="noreferrer" className="text-accent hover:underline" title={michelsonAddress ?? ''}>
+                          {short(michelsonAddress ?? '', 6)}
+                        </a>
+                      </span>
                     </span>
                   </div>
                 </div>
