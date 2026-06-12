@@ -4,7 +4,7 @@ import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind, TezosToolkit } from '@taquito/taquito';
 import type { MichelsonV1Expression } from '@taquito/rpc';
 import { CFG } from './config';
-import { XTZ, buildBatchTransaction, objkt, swapper, targetForMinOut } from './sdk';
+import { XTZ, buildBatchTransaction, buildSwapOperation, fromEvm, michelsonToAlias, objkt, resolveApproval, swapper, targetForMinOut, toEvm } from './sdk';
 import type { ThreeRouteToken } from './sdk';
 import { fmtSig } from './format';
 
@@ -83,44 +83,55 @@ export async function buildBuyBatch(
   payToken: ThreeRouteToken,
   slippageBps: number,
 ): Promise<{ ops: ParamsWithKind[]; details: BuyDetails }> {
-  // The server sets the on-chain floor minOut = target × (1 − slippage). We need minOut ≥ the NFT price
-  // (else fulfill_ask reverts), so size the exact-out target = ceil(price / (1 − slippage)). This sizing is
-  // the consumer's policy — the SDK just takes the final target. Guard slip < 100%.
+  // Size the exact-out target so the on-chain floor (minOut = target × (1 − slip)) covers the NFT price.
   const bps = Math.min(slippageBps, 9900);
   const target = targetForMinOut(BigInt(ask.priceMutez), bps);
+  const alias = michelsonToAlias(buyerMichelsonAddress);
 
-  // exact-out payToken -> XTZ: ops = [approve, swap(call_evm)]; output native XTZ auto-forwards to the
-  // Michelson address. prepareSwap is offline (no toolkit, no contract fetch).
-  const { ops: swapOps, details: swap } = await swapper.prepareSwap({
-    account: buyerMichelsonAddress,
-    src: payToken,
-    dst: XTZ,
-    amount: target,
+  // 1. swap: exact-out payToken -> XTZ (price + route + calldata). 2. read the on-chain allowance -> pick the minimal approval mode.
+  const swap = await swapper.client.getSwap({
+    src: payToken.address,
+    dst: XTZ.address,
+    amount: toEvm(target, XTZ.address),
     exactOut: true,
-    slippageBps: bps,
+    from: alias,
+    receiver: alias,
+    slippagePercent: bps / 100,
   });
+  const srcAmount = BigInt(swap.srcAmount);
+  const approval = await resolveApproval({ evmRpc: CFG.evmRpc, token: payToken.address, owner: alias, spender: swap.tx.to, amount: srcAmount });
 
-  // fulfill_ask (hand-encoded objkt op) — paid by the bridged XTZ. Composed into the same atomic group.
+  // 3. swap ops for that mode + the marketplace fulfill (paid by the bridged XTZ) — one atomic group.
+  const swapOps = buildSwapOperation(swap, { gateway: swapper.gateway, srcAddress: payToken.address, approval });
   const fulfillOp = objkt.buildFulfillAsk({ marketplace: CFG.objkt, askId: ask.askId, amountMutez: BigInt(ask.priceMutez) });
   const ops = buildBatchTransaction(swapOps, fulfillOp);
 
-  const expectedOutMutez = Number(swap.dst.expected); // already mutez
-  const minOutMutez = Number(swap.dst.min); // == price after our sizing
+  const expectedOutMutez = Number(fromEvm(BigInt(swap.dstAmount), XTZ.address));
+  const minOutMutez = Number(fromEvm(BigInt(swap.dstAmountMin), XTZ.address)); // == price after our sizing
   const changeMutez = Math.max(0, expectedOutMutez - ask.priceMutez);
+
+  // steps mirror the ACTUAL ops (2 / 3 / 4 in the group, depending on the approval mode).
+  const approveExact = { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(srcAmount, payToken.decimals, 6)} ${payToken.symbol} to the 3route router` };
+  const approveSteps =
+    approval === 'resetThenApprove'
+      ? [{ kind: 'approve (call_evm)', detail: `reset ${payToken.symbol} allowance to 0 (safe re-approval)` }, approveExact]
+      : approval === 'approve'
+        ? [approveExact]
+        : []; // 'none' — allowance already covers it
 
   const details: BuyDetails = {
     askId: ask.askId,
     tokenId: ask.tokenId,
     priceMutez: ask.priceMutez,
     payToken,
-    payAmount: swap.src.amount.toString(),
+    payAmount: srcAmount.toString(),
     expectedOutMutez,
     minOutMutez,
     changeMutez,
     slippageBps: bps,
-    router: swap.router,
+    router: swap.tx.to,
     steps: [
-      { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(swap.src.amount, payToken.decimals, 6)} ${payToken.symbol} to the 3route router` },
+      ...approveSteps,
       { kind: 'swap (call_evm)', detail: `${payToken.symbol} → native XTZ to your alias → auto-forwards to your Michelson address` },
       { kind: 'fulfill_ask', detail: `buy ask#${ask.askId}, pay ${ask.priceMutez / 1e6} XTZ` },
     ],

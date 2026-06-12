@@ -1,18 +1,33 @@
 // scripts/example-buy.ts — minimal headless buy: pay an EVM ERC20 for an XTZ-priced objkt NFT, signed by a
-// secret key (InMemorySigner — no Beacon/Temple wallet). Everything is hardcoded except the secret key, which
-// comes from the SECRET_KEY env var. One atomic op-group: [approve, swap(call_evm), fulfill_ask].
-//   Run:  SECRET_KEY=edsk... npx tsx scripts/example-buy.ts
+// secret key (InMemorySigner — no Beacon/Temple wallet). Everything is hardcoded except the secret key (env).
+// Demonstrates the allowance-aware approval flow: swap (price+route+calldata) -> resolveApproval reads the on-chain allowance and picks
+// the safe & minimal mode (skip / approve / reset+approve) -> build the ops. One atomic op-group ending in
+// fulfill_ask. Run:  SECRET_KEY=edsk... npx tsx scripts/example-buy.ts
 import { InMemorySigner } from '@taquito/signer';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
-import { ThreeRouteTezosX, XTZ, buildBatchTransaction, objkt, sendGroup, targetForMinOut, tezosXPreviewnet } from '../sdk/index.js';
+import {
+  XTZ,
+  ThreeRouteTezosX,
+  buildBatchTransaction,
+  buildSwapOperation,
+  fromEvm,
+  michelsonToAlias,
+  objkt,
+  resolveApproval,
+  sendGroup,
+  targetForMinOut,
+  toEvm,
+  tezosXPreviewnet,
+} from '../sdk/index.js';
 
 // ── hardcoded config (edit ASK_ID / PRICE_MUTEZ to a live ask) ───────────────────────────────
 const SECRET_KEY = process.env.SECRET_KEY; // the ONLY input — buyer's Michelson secret key
 const MICHELSON_RPC = 'https://michelson.previewnet.tezosx.nomadic-labs.com';
+const EVM_RPC = 'https://evm.previewnet.tezosx.nomadic-labs.com'; // to read the ERC20 allowance
 const NETWORK = tezosXPreviewnet; // chainId + gateway + default 3route apiBaseUrl (localhost)
 
 const MARKETPLACE = objkt.previewnet.marketplace; // objkt v4 for this network
-const ASK_ID = '45';
+const ASK_ID = '67';
 const PRICE_MUTEZ = 1_000n; // 0.001 XTZ — must match the ask price
 const PAY_SYMBOL = 'USDC'; // ERC20 to pay with (held on the buyer's alias)
 const SLIPPAGE_BPS = 200; // 2%
@@ -26,17 +41,32 @@ tezos.setForgerProvider(tezos.getFactory(RpcForger)()); // previewnet rejects lo
 const swapper = new ThreeRouteTezosX({ network: NETWORK }); // baseUrl defaults to NETWORK.apiBaseUrl
 
 const account = await tezos.signer.publicKeyHash();
+const alias = michelsonToAlias(account); // the EVM-side identity that holds the ERC20 / runs the swap
 const payToken = (await swapper.getTokens()).find((t) => t.symbol === PAY_SYMBOL);
 if (!payToken) throw new Error(`pay token ${PAY_SYMBOL} not in the 3route registry`);
 
-// exact-out payToken -> XTZ: size the target so the on-chain floor covers the ask price.
+// 1. swap: exact-out payToken -> XTZ (price + route + calldata), sized so the on-chain floor covers the ask price.
 const target = targetForMinOut(PRICE_MUTEZ, SLIPPAGE_BPS);
-const { ops, details } = await swapper.prepareSwap({ account, src: payToken, dst: XTZ, amount: target, exactOut: true, slippageBps: SLIPPAGE_BPS });
-console.log(`buyer ${account} · pay ≤ ${details.src.amount} ${PAY_SYMBOL} · receive ≥ ${details.dst.min} mutez (price ${PRICE_MUTEZ}) · router ${details.router}`);
+const swap = await swapper.client.getSwap({
+  src: payToken.address,
+  dst: XTZ.address,
+  amount: toEvm(target, XTZ.address), // mutez -> wei for the EVM API
+  exactOut: true,
+  from: alias,
+  receiver: alias,
+  slippagePercent: SLIPPAGE_BPS / 100,
+});
+const srcAmount = BigInt(swap.srcAmount); // payToken the swap will pull
+const router = swap.tx.to;
 
-// compose the atomic group: swap leg + marketplace fulfill (paid by the bridged XTZ), one signature.
-const fulfill = objkt.buildFulfillAsk({ marketplace: MARKETPLACE, askId: ASK_ID, amountMutez: PRICE_MUTEZ });
-const group = buildBatchTransaction(ops, fulfill);
+// 2. let the SDK read the on-chain allowance (alias -> router) and pick the safe & minimal approval mode.
+const approval = await resolveApproval({ evmRpc: EVM_RPC, token: payToken.address, owner: alias, spender: router, amount: srcAmount });
+console.log(`buyer ${account} · pay ≤ ${srcAmount} ${PAY_SYMBOL} · receive ≥ ${fromEvm(BigInt(swap.dstAmountMin), XTZ.address)} mutez · router ${router}`);
+console.log(`need ${srcAmount} ${PAY_SYMBOL} → approval='${approval}'`);
+
+// 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
+const swapOps = buildSwapOperation(swap, { gateway: NETWORK.gateway, srcAddress: payToken.address, approval });
+const group = buildBatchTransaction(swapOps, objkt.buildFulfillAsk({ marketplace: MARKETPLACE, askId: ASK_ID, amountMutez: PRICE_MUTEZ }));
 console.log(`Sending ${group.length}-op atomic group…`);
 const hash = await sendGroup(tezos, group);
 console.log(`Done: https://previewnet.tezosx.tzkt.io/${hash}`);

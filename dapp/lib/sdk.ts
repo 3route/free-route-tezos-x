@@ -14,11 +14,14 @@ export {
   objkt,
   buildSwapOperation,
   buildBatchTransaction,
+  readAllowance,
+  selectApproval,
+  resolveApproval,
   tezosXPreviewnet,
   xtzWeiToMutez,
   xtzMutezToWei,
 } from '@sdk/index.js';
-export type { ThreeRouteToken, SwapResponse, QuoteResponse, SwapDetails, EvmAddress, MichelsonAddress, Hex } from '@sdk/index.js';
+export type { ThreeRouteToken, SwapResponse, QuoteResponse, SwapDetails, ApprovalMode, EvmAddress, MichelsonAddress, Hex } from '@sdk/index.js';
 
 import { ThreeRouteTezosX, tezosXPreviewnet } from '@sdk/index.js';
 
