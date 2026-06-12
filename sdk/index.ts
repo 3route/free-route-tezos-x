@@ -5,6 +5,7 @@ export * from './units.js';
 export * from './address.js';
 export * from './threeroute.js';
 export * from './operations.js';
+export * from './approval.js';
 export * from './networks.js';
 export * from './swap.js';
 export * as objkt from './marketplaces/objkt.js';

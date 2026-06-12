@@ -10,6 +10,7 @@ import { xtzMutezToWei, xtzWeiToMutez } from './units.js';
 import { ThreeRouteClient } from './threeroute.js';
 import type { SwapResponse, ThreeRouteToken } from './threeroute.js';
 import { SWAP_SIG, buildCallEvm, buildErc20Approve } from './operations.js';
+import type { ApprovalMode } from './approval.js';
 import { tezosXMainnet } from './networks.js';
 import type { TezosXNetwork } from './networks.js';
 
@@ -48,26 +49,26 @@ export interface PrepareSwapParams {
   amount: bigint; // natural units of the exact side (mutez for XTZ, base units for ERC20) — final, not re-sized
   exactOut?: boolean; // false = exact-input (default); true = exact-output (amount is the target output)
   slippageBps: number; // forwarded to the server, which sets the on-chain minimum output
-  resetApproval?: boolean; // prepend approve(0) for ERC20s that require it before a new approval
+  approval?: ApprovalMode; // ERC20 allowance handling; default 'resetThenApprove' (safest). See selectApproval.
 }
 
 export interface BuildSwapOperationOptions {
   gateway: MichelsonAddress; // Michelson->EVM gateway (call_evm)
   srcAddress: EvmAddress; // input token address — decides native-value (XTZ) vs approve (ERC20)
-  resetApproval?: boolean; // prepend approve(0) before the approve (USDT-style tokens)
+  approval?: ApprovalMode; // default 'resetThenApprove'
 }
 
-// Pure: turn a 3route /swap response into ready-to-sign Tezos ops, no network. ERC20 input -> [approve, swap];
-// native-XTZ input -> a single swap op carrying the XTZ as msg.value. Quoting/sizing happen upstream (getSwap).
-export function buildSwapOperation(quote: SwapResponse, opts: BuildSwapOperationOptions): ParamsWithKind[] {
+// Pure: turn a 3route /swap response into ready-to-sign Tezos ops, no network. ERC20 input -> approve(s) + swap
+// per `approval`; native-XTZ input -> a single swap op carrying the XTZ as msg.value. Quoting/sizing upstream.
+export function buildSwapOperation(swap: SwapResponse, opts: BuildSwapOperationOptions): ParamsWithKind[] {
   const native = isXtz(opts.srcAddress);
-  const swapOp = buildCallEvm(opts.gateway, quote.tx.to, SWAP_SIG, quote.tx.data.slice(10) as Hex, native ? xtzWeiToMutez(BigInt(quote.tx.value)) : 0n);
-  if (native) return [swapOp];
-  return [
-    ...(opts.resetApproval ? [buildErc20Approve(opts.gateway, opts.srcAddress, quote.tx.to, 0n)] : []),
-    buildErc20Approve(opts.gateway, opts.srcAddress, quote.tx.to, quote.srcAmount),
-    swapOp,
-  ];
+  const swapOp = buildCallEvm(opts.gateway, swap.tx.to, SWAP_SIG, swap.tx.data.slice(10) as Hex, native ? xtzWeiToMutez(BigInt(swap.tx.value)) : 0n);
+  const approval = opts.approval ?? 'resetThenApprove';
+  if (native || approval === 'none') return [swapOp]; // native XTZ needs no approve; 'none' = caller manages it
+  const approve = buildErc20Approve(opts.gateway, opts.srcAddress, swap.tx.to, swap.srcAmount);
+  return approval === 'resetThenApprove'
+    ? [buildErc20Approve(opts.gateway, opts.srcAddress, swap.tx.to, 0n), approve, swapOp]
+    : [approve, swapOp];
 }
 
 export interface ThreeRouteTezosXOptions {
@@ -93,7 +94,7 @@ export class ThreeRouteTezosX {
   }
 
   async prepareSwap(p: PrepareSwapParams): Promise<{ ops: ParamsWithKind[]; details: SwapDetails }> {
-    const { account, src, dst, amount, exactOut = false, slippageBps, resetApproval } = p;
+    const { account, src, dst, amount, exactOut = false, slippageBps, approval } = p;
     const alias = michelsonToAlias(account);
 
     const exactSide = exactOut ? dst : src; // amount is denominated in the exact side
@@ -107,8 +108,8 @@ export class ThreeRouteTezosX {
       slippagePercent: slippageBps / 100,
     });
 
-    // build the ops from the quote (pure) — native value vs approve(s) is decided by the input token.
-    const ops = buildSwapOperation(swap, { gateway: this.gateway, srcAddress: src.address, resetApproval });
+    // build the ops from the swap response (pure) — native value vs approve(s) is decided by the input token.
+    const ops = buildSwapOperation(swap, { gateway: this.gateway, srcAddress: src.address, approval });
 
     return {
       ops,
