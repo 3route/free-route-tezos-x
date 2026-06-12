@@ -9,7 +9,9 @@ import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
 import { CFG } from '@/lib/config';
-import type { Listing } from '@/lib/tzkt';
+import { fetchErc20Balance, fetchXtzBalance, type Listing } from '@/lib/tzkt';
+import { buildBuyReceipt, type BuyReceipt } from '@/lib/receipt';
+import { ReceiptModal } from './ReceiptModal';
 
 // address -> explorer link. Michelson side (tz/KT) -> tzkt; EVM (0x) -> Blockscout.
 function Addr({ value, len = 5 }: { value: string; len?: number }) {
@@ -51,9 +53,11 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     SLIPPAGES.some((s) => s.bps === slippageBps) ? '' : String(slippageBps / 100),
   );
   const [details, setDetails] = useState<BuyDetails | null>(null);
+  const [receipt, setReceipt] = useState<BuyReceipt | null>(null);
   const [ops, setOps] = useState<ParamsWithKind[] | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [buying, setBuying] = useState(false);
+  const [finalizing, setFinalizing] = useState(false); // tx sent, building the on-chain receipt
   const [err, setErr] = useState<string | null>(null);
 
   const priceMutez = Number(listing.priceMutez);
@@ -90,23 +94,49 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
   const enough = !details || bal >= need;
 
   async function confirm() {
-    if (!tezos || !ops || !token) return;
+    if (!tezos || !ops || !token || !michelsonAddress || !aliasAddress || !details) return;
     setBuying(true);
     setErr(null);
     try {
       log.pending(`Buying ask#${listing.askId} with ${token.symbol}…`);
+      // snapshot real balances BEFORE (live node reads) so the receipt is measured, not estimated
+      const [xtz0, usdc0] = await Promise.all([fetchXtzBalance(michelsonAddress), fetchErc20Balance(token.address, aliasAddress)]);
       const hash = await sendWalletGroup(tezos, ops);
       log.ok(`Bought "${nftName(listing.tokenId)}" → delivered to your Michelson address`, hash);
-      refresh();
-      onClose();
+      setFinalizing(true); // tx confirmed — now reading the on-chain receipt
+      refresh(); // update listings/balances in the background
+      // build the exact on-chain receipt (best-effort — never block the success on indexer lag)
+      try {
+        const r = await buildBuyReceipt({
+          opHash: hash,
+          buyer: michelsonAddress,
+          aliasAddress,
+          payTokenAddress: token.address,
+          tokenId: listing.tokenId,
+          quotedSrcAmount: BigInt(details.payAmount),
+          expectedChange: BigInt(details.changeMutez),
+          before: { xtz: xtz0, usdc: usdc0 },
+        });
+        log.info(
+          `Receipt: −${fmtSig(r.usdcSpent, token.decimals, 6)} ${token.symbol} · net ${mutezToXtz(r.xtzNet < 0n ? -r.xtzNet : r.xtzNet, 6)} XTZ ${r.xtzNet < 0n ? 'out' : 'in'}`,
+          hash,
+        );
+        setReceipt(r); // show the receipt modal
+      } catch {
+        onClose(); // receipt unavailable (indexer lag) — the buy itself still succeeded
+      }
     } catch (e) {
       const msg = (e as Error).message;
       log.err('Purchase failed', msg);
       setErr(msg);
     } finally {
       setBuying(false);
+      setFinalizing(false);
     }
   }
+
+  // once bought, swap the review for the measured on-chain receipt
+  if (receipt && token) return <ReceiptModal receipt={receipt} token={token} tokenId={listing.tokenId} onClose={onClose} />;
 
   return (
     <div className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4" onClick={onClose}>
@@ -281,7 +311,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
             Cancel
           </button>
           <button className="btn-primary" onClick={() => void confirm()} disabled={!ops || buying || quoting || !enough}>
-            {buying ? 'Signing…' : `Buy with ${token?.symbol ?? ''}`}
+            {buying ? (finalizing ? 'Finalizing…' : 'Signing…') : `Buy with ${token?.symbol ?? ''}`}
           </button>
         </div>
       </div>
