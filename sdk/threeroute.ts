@@ -47,7 +47,19 @@ export interface SwapQuery {
 export interface ThreeRouteClientOptions {
   baseUrl: string; // '' to hit a same-origin proxy (browser/CORS); otherwise the server origin
   chainId: number;
-  apiKey?: string; // HTTP Basic credential; omit for the local dev server
+  /**
+   * HTTP Basic credential, sent verbatim after "Basic " — the ENCODED token, NOT a raw secret. By the HTTP
+   * Basic scheme that's base64("user:pass") (for key-style auth usually base64(`${apiKey}:`)). Omit for a
+   * keyless server. Never set this on a browser-side client — keep the key server-side (see authHeaders).
+   */
+  apiKey?: string;
+}
+
+// The 3route auth scheme in ONE place: the client AND any same-origin proxy (BFF) build the header from here,
+// so the encoding can't drift between them. `apiKey` is the ThreeRouteClientOptions.apiKey credential. Returns
+// {} when no key, so callers can spread it unconditionally: { 'Content-Type': ..., ...authHeaders(key) }.
+export function authHeaders(apiKey?: string): Record<string, string> {
+  return apiKey ? { Authorization: `Basic ${apiKey}` } : {};
 }
 
 export class ThreeRouteClient {
@@ -82,8 +94,7 @@ export class ThreeRouteClient {
   }
 
   private async request<T>(path: string): Promise<T> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (this.opts.apiKey) headers.Authorization = `Basic ${this.opts.apiKey}`;
+    const headers = { 'Content-Type': 'application/json', ...authHeaders(this.opts.apiKey) };
     const res = await fetch(`${this.opts.baseUrl}/api/v6.1/${this.opts.chainId}/${path}`, { method: 'GET', headers });
     if (!res.ok) throw new Error(`3route ${path.split('?')[0]} -> HTTP ${res.status}`);
     return res.json() as Promise<T>;

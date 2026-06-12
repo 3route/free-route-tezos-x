@@ -74,7 +74,7 @@ export function buildSwapOperation(swap: SwapResponse, opts: BuildSwapOperationO
 export interface ThreeRouteTezosXOptions {
   network?: TezosXNetwork; // chain constants (chainId + gateway); default tezosXMainnet
   baseUrl?: string; // 3route API location; defaults to network.apiBaseUrl (override for proxy/hosted)
-  apiKey?: string; // HTTP Basic credential; omit for the local dev server
+  apiKey?: string; // HTTP Basic credential (encoded — see ThreeRouteClientOptions.apiKey); omit for a keyless server
 }
 
 export class ThreeRouteTezosX {
