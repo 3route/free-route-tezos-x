@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { XTZ_ADDRESS, isXtz, targetForMinOut, threeRoute, xtzMutezToWei } from './sdk';
+import { XTZ_ADDRESS, isXtz, threeRoute, xtzMutezToWei } from './sdk';
 import type { ThreeRouteToken } from './sdk';
 import { fetchErc20Balance, fetchListings, fetchOwned, fetchXtzBalance, type Listing, type OwnedToken } from './tzkt';
 import { useUi } from './ui';
@@ -67,7 +67,6 @@ export function usePriceCurrency(payTokens: ThreeRouteToken[]) {
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const token = payTokens.find((t) => t.address === currency) ?? null;
-  const slippageBps = useUi((s) => s.slippageBps); // global — keeps card amounts in sync with the buy
 
   // default to the first pay-token once the registry loads (runs once; user can switch / toggle to XTZ after)
   useEffect(() => {
@@ -102,12 +101,11 @@ export function usePriceCurrency(payTokens: ThreeRouteToken[]) {
     };
   }, [token]);
 
-  // listing price (mutez) -> selected token base units, with the global slippage buffer applied
-  // (target = price / (1 - slip)) so the card amount matches what the buy will actually cost.
+  // listing price (mutez) -> selected token base units, at the shared rate only (NO slippage buffer). The card
+  // is an estimate; the binding amount (with the slippage buffer + a real per-ask getSwap) lives in the modal.
   const convert = (priceMutez: string | number): bigint | null => {
     if (!token || rate === null) return null;
-    // buffer the price by the same exact-out sizing the buy uses, then apply the rate (token per 1 XTZ).
-    return (targetForMinOut(BigInt(priceMutez), slippageBps) * rate) / REF_XTZ_MUTEZ;
+    return (BigInt(priceMutez) * rate) / REF_XTZ_MUTEZ;
   };
 
   // bidirectional rate label: "1 XTZ ≈ x SYM · 1 SYM ≈ y XTZ"
