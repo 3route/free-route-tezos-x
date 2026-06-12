@@ -7,7 +7,7 @@ const DOT: Record<LogLevel, string> = {
   info: 'bg-slate-400',
   success: 'bg-accent2',
   error: 'bg-rose-400',
-  pending: 'bg-amber-400 animate-pulse',
+  pending: 'bg-amber-400',
 };
 
 const isOpHash = (s?: string) => !!s && /^o[0-9A-Za-z]{50,}$/.test(s);
