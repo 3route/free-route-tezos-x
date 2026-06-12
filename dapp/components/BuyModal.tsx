@@ -287,7 +287,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                 <ol className="space-y-1 text-xs text-slate-400">
                   {details.steps.map((s, i) => (
                     <li key={i} className="flex gap-2">
-                      <span className="text-slate-600">{i + 1}.</span>
+                      <span className="w-3 shrink-0 text-right tabular-nums text-slate-600">{i + 1}.</span>
                       <span>
                         <span className="text-slate-300">{s.kind}</span> — {s.detail}
                       </span>
