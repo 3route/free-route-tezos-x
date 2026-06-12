@@ -271,7 +271,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                         <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
                       </span>
                       <span className="block text-xs text-slate-500">
-                        returned to your{' '}
+                        returns to your{' '}
                         <a href={`${CFG.explorer}/${michelsonAddress}`} target="_blank" rel="noreferrer" className="text-accent hover:underline" title={michelsonAddress ?? ''}>
                           {short(michelsonAddress ?? '', 6)}
                         </a>
