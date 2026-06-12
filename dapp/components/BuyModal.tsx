@@ -8,22 +8,9 @@ import { buildBuyBatch, sendWalletGroup, type BuyDetails } from '@/lib/ops';
 import { fmtSig, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
 import { log } from '@/lib/log';
-import { CFG } from '@/lib/config';
 import { fetchErc20Balance, fetchXtzBalance, type Listing } from '@/lib/tzkt';
 import { buildBuyReceipt, type BuyReceipt } from '@/lib/receipt';
 import { ReceiptModal } from './ReceiptModal';
-
-// address -> explorer link. Michelson side (tz/KT) -> tzkt; EVM (0x) -> Blockscout.
-function Addr({ value, len = 5 }: { value: string; len?: number }) {
-  if (!value) return null;
-  const isTezos = value.startsWith('tz') || value.startsWith('KT');
-  const href = isTezos ? `${CFG.explorer}/${value}` : `${CFG.evmExplorer}/address/${value}`;
-  return (
-    <a href={href} target="_blank" rel="noreferrer" className="text-accent hover:underline" title={value}>
-      {short(value, len)}
-    </a>
-  );
-}
 
 const Spinner = () => <div className="h-6 w-6 animate-spin rounded-full border-2 border-edge border-t-accent" />;
 
@@ -221,64 +208,58 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
         </div>
 
         {/* review */}
-        <div className="rounded-xl border border-edge bg-ink/50 p-3 text-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="label">Review</span>
-          </div>
+        <div className="text-sm">
           <div className="relative min-h-[15rem]">
             {err && !details && (
               <div className="grid h-[15rem] place-items-center text-center text-xs text-rose-400">{err}</div>
             )}
             {details && token && (
-            <div className={`space-y-2 transition-opacity ${quoting ? 'opacity-40' : 'opacity-100'}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">
-                  You pay <span className="text-[10px] uppercase tracking-wide text-slate-600">exact</span>
-                </span>
-                <span className="font-mono">
-                  {fmtSig(details.payAmount, token.decimals, 6)} {token.symbol}
-                </span>
-              </div>
-              <div className="flex items-start justify-between">
-                <span className="text-slate-400">You receive</span>
-                <span className="text-right font-mono">
-                  <span className="block">
-                    ≈ {mutezToXtz(details.expectedOutMutez, 6)} XTZ{' '}
-                    <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
+            <div className={`space-y-3 transition-opacity ${quoting ? 'opacity-40' : 'opacity-100'}`}>
+              {/* EVM Side */}
+              <div className="rounded-lg border border-edge p-2.5">
+                <div className="label mb-1.5">EVM Side</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">
+                    You pay <span className="text-[10px] uppercase tracking-wide text-slate-600">exact</span>
                   </span>
-                  <span className="block text-xs text-slate-500">≥ {mutezToXtz(details.minOutMutez, 6)} XTZ guaranteed</span>
-                </span>
+                  <span className="font-mono">{fmtSig(details.payAmount, token.decimals, 6)} {token.symbol}</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">NFT price</span>
-                <span className="font-mono">{mutezToXtz(priceMutez, 6)} XTZ</span>
+
+              {/* Michelson Side */}
+              <div className="rounded-lg border border-edge p-2.5">
+                <div className="label mb-1.5">Michelson Side</div>
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between">
+                    <span className="text-slate-400">You receive</span>
+                    <span className="text-right font-mono">
+                      <span className="block">
+                        ≈ {mutezToXtz(details.expectedOutMutez, 6)} XTZ{' '}
+                        <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
+                      </span>
+                      <span className="block text-xs text-slate-500">≥ {mutezToXtz(details.minOutMutez, 6)} XTZ guaranteed</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">NFT price</span>
+                    <span className="font-mono">{mutezToXtz(priceMutez, 6)} XTZ</span>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <span className="text-slate-400">Change</span>
+                    <span className="text-right font-mono">
+                      <span className="block">
+                        ≈ {mutezToXtz(details.changeMutez, 6)} XTZ{' '}
+                        <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
+                      </span>
+                      <span className="block text-xs text-slate-500">returned to your account</span>
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-start justify-between">
-                <span className="text-slate-400">Change → your Michelson address</span>
-                <span className="text-right font-mono">
-                  <span className="block">
-                    ≈ {mutezToXtz(details.changeMutez, 6)} XTZ{' '}
-                    <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
-                  </span>
-                  <span className="block text-xs text-slate-500">
-                    ≥ 0, set on-chain · <Addr value={michelsonAddress ?? ''} len={6} />
-                  </span>
-                </span>
-              </div>
-              <div className="flex items-start justify-between">
-                <span className="text-slate-400">Slippage</span>
-                <span className="max-w-[60%] text-right text-xs text-slate-500">
-                  {details.slippageBps / 100}% — if output &lt; {mutezToXtz(details.minOutMutez, 6)} XTZ the purchase reverts ({token.symbol} refunded)
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Route</span>
-                <span className="font-mono text-xs">
-                  {token.symbol} → XTZ · 3route <Addr value={details.router} len={5} />
-                </span>
-              </div>
-              <div className="mt-2 border-t border-edge pt-2">
-                <div className="label mb-1">One signature · atomic op-group</div>
+
+              {/* steps */}
+              <div className="rounded-lg border border-edge p-2.5">
+                <div className="label mb-1.5">One signature · atomic op-group</div>
                 <ol className="space-y-1 text-xs text-slate-400">
                   {details.steps.map((s, i) => (
                     <li key={i} className="flex gap-2">
@@ -290,8 +271,9 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                   ))}
                 </ol>
               </div>
+
               {!enough && (
-                <div className="mt-1 text-xs text-amber-400">
+                <div className="text-xs text-amber-400">
                   Alias balance ({fmtSig(bal, token.decimals, 4)} {token.symbol}) is below the required amount.
                 </div>
               )}
