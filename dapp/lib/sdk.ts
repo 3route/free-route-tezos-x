@@ -1,5 +1,5 @@
-// Thin adapter over 3route-tezosx (../sdk). The only dApp-specific bit is pointing the client at the
-// same-origin Next proxy (baseUrl '') so browser requests avoid CORS to the 3route server.
+// dApp's view of the SDK. Pure builders/types run in the browser; the keyed 3route client lives server-side
+// (lib/server/threeRoute.ts) behind /api/3route/*, and the browser uses the keyless shim below.
 export {
   XTZ,
   XTZ_ADDRESS,
@@ -7,25 +7,36 @@ export {
   toEvm,
   fromEvm,
   targetForMinOut,
-  ThreeRouteTezosX,
-  ThreeRouteClient,
   michelsonToAlias,
-  aliasOf,
   objkt,
   buildSwapOperation,
   buildBatchTransaction,
-  readAllowance,
-  selectApproval,
   resolveApproval,
-  tezosXPreviewnet,
-  xtzWeiToMutez,
   xtzMutezToWei,
 } from '@sdk/index.js';
-export type { ThreeRouteToken, SwapResponse, QuoteResponse, SwapDetails, ApprovalMode, EvmAddress, MichelsonAddress, Hex } from '@sdk/index.js';
+export type { ThreeRouteToken } from '@sdk/index.js';
 
-import { ThreeRouteTezosX, tezosXPreviewnet } from '@sdk/index.js';
+import type { Quote, QuoteQuery, QuoteResponseDto, Swap, SwapResponseDto, ThreeRouteApi, ThreeRouteToken } from '@sdk/index.js';
+import { parseQuote, parseSwap } from '@sdk/index.js';
+import { queryToParams } from './threeRouteDto';
 
-// baseUrl '' -> requests hit `/api/v6.1/{chain}/...` on this origin (the Next proxy forwards to THREE_ROUTE_API);
-// the preset supplies chainId + gateway.
-export const swapper = new ThreeRouteTezosX({ network: tezosXPreviewnet, baseUrl: '' });
-export const threeRoute = swapper.client; // raw client for token registry + rate quotes
+// Same-origin call to our endpoints (no key — injected server-side); surfaces the server's {error} message.
+async function get<T>(path: string, q?: QuoteQuery): Promise<T> {
+  const url = q ? `/api/3route/${path}?${queryToParams(q)}` : `/api/3route/${path}`;
+  const r = await fetch(url);
+  if (!r.ok) {
+    const msg = await r
+      .json()
+      .then((b) => (b as { error?: string }).error)
+      .catch(() => null);
+    throw new Error(`3route ${path} -> ${msg ?? `HTTP ${r.status}`}`);
+  }
+  return r.json() as Promise<T>;
+}
+
+// Browser shim for the 3route read surface — fetches wire DTOs from our BFF and parses them into models.
+export const threeRoute: ThreeRouteApi = {
+  getTokens: () => get<ThreeRouteToken[]>('tokens'),
+  getQuote: async (q): Promise<Quote> => parseQuote(await get<QuoteResponseDto>('quote', q)),
+  getSwap: async (q): Promise<Swap> => parseSwap(await get<SwapResponseDto>('swap', q)),
+};

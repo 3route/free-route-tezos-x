@@ -4,7 +4,7 @@ import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind, TezosToolkit } from '@taquito/taquito';
 import type { MichelsonV1Expression } from '@taquito/rpc';
 import { CFG } from './config';
-import { XTZ, buildBatchTransaction, buildSwapOperation, fromEvm, michelsonToAlias, objkt, resolveApproval, swapper, targetForMinOut, toEvm } from './sdk';
+import { XTZ, buildBatchTransaction, buildSwapOperation, fromEvm, michelsonToAlias, objkt, resolveApproval, targetForMinOut, threeRoute, toEvm } from './sdk';
 import type { ThreeRouteToken } from './sdk';
 import { fmtSig } from './format';
 
@@ -89,7 +89,7 @@ export async function buildBuyBatch(
   const alias = michelsonToAlias(buyerMichelsonAddress);
 
   // 1. swap: exact-out payToken -> XTZ (price + route + calldata). 2. read the on-chain allowance -> pick the minimal approval mode.
-  const swap = await swapper.client.getSwap({
+  const swap = await threeRoute.getSwap({
     src: payToken.address,
     dst: XTZ.address,
     amount: toEvm(target, XTZ.address),
@@ -98,16 +98,16 @@ export async function buildBuyBatch(
     receiver: alias,
     slippagePercent: bps / 100,
   });
-  const srcAmount = BigInt(swap.srcAmount);
+  const srcAmount = swap.srcAmount;
   const approval = await resolveApproval({ evmRpc: CFG.evmRpc, token: payToken.address, owner: alias, spender: swap.tx.to, amount: srcAmount });
 
   // 3. swap ops for that mode + the marketplace fulfill (paid by the bridged XTZ) — one atomic group.
-  const swapOps = buildSwapOperation(swap, { gateway: swapper.gateway, srcAddress: payToken.address, approval });
+  const swapOps = buildSwapOperation(swap, { gateway: CFG.gateway, srcAddress: payToken.address, approval });
   const fulfillOp = objkt.buildFulfillAsk({ marketplace: CFG.objkt, askId: ask.askId, amountMutez: BigInt(ask.priceMutez) });
   const ops = buildBatchTransaction(swapOps, fulfillOp);
 
-  const expectedOutMutez = Number(fromEvm(BigInt(swap.dstAmount), XTZ.address));
-  const minOutMutez = Number(fromEvm(BigInt(swap.dstAmountMin), XTZ.address)); // == price after our sizing
+  const expectedOutMutez = Number(fromEvm(swap.dstAmount, XTZ.address));
+  const minOutMutez = Number(fromEvm(swap.dstAmountMin, XTZ.address)); // == price after our sizing
   const changeMutez = Math.max(0, expectedOutMutez - ask.priceMutez);
 
   // steps mirror the ACTUAL ops (2 / 3 / 4 in the group, depending on the approval mode).

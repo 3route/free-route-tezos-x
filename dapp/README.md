@@ -7,8 +7,8 @@ Next.js SPA on top of the pure-SDK (`../sdk`). Two modes (header toggle):
 - **Buyer** — browse active listings, see your tz1 / EVM-alias balances, pick any ERC20 (USDC / uranium /
   gold …) to pay, review the intent, and buy — one atomic Tezos op-group `[approve, swap (call_evm), fulfill_ask]`.
 
-Signing is client-side via **Temple/Beacon**. Read-only data comes from tzkt + the EVM RPC; 3route quotes are
-proxied through `/api/v6.1/*` (server-side) to avoid browser CORS.
+Signing is client-side via **Temple/Beacon**. Read-only data comes from tzkt + the EVM RPC; 3route reads are
+proxied through `/api/3route/*` (server-side) — avoids browser CORS and keeps the api key off the client.
 
 ## Run
 
