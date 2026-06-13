@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@/lib/wallet';
-import { useBalances, useTokens } from '@/lib/hooks';
+import { BALANCES_REFRESH_MS, useBalances, useTokens } from '@/lib/hooks';
 import { fmtUnits, short } from '@/lib/format';
 import { CFG } from '@/lib/config';
 
@@ -13,8 +13,9 @@ const evmLink = (a: string) => `${CFG.evmExplorer}/address/${a}`;
 export function WalletMenu() {
   const { connected, michelsonAddress, aliasAddress, connect, switchAccount, disconnect, connecting } = useWallet();
   const { payTokens } = useTokens();
-  const { xtz, erc, loading, refresh } = useBalances();
+  const { xtz, erc, loading, updatedAt, refresh } = useBalances();
   const [open, setOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,6 +29,15 @@ export function WalletMenu() {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  // 1s tick for the "updating in Ns" countdown — only while the dropdown is open
+  useEffect(() => {
+    if (!open) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [open]);
+  const refreshInSec = updatedAt ? Math.max(0, Math.round(BALANCES_REFRESH_MS / 1000) - Math.round((now - updatedAt) / 1000)) : null;
 
   if (!connected) {
     return (
@@ -51,9 +61,12 @@ export function WalletMenu() {
         <div className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-edge bg-panel p-3 shadow-xl shadow-black/50">
           <div className="mb-2 flex items-center justify-between">
             <span className="label">Balances</span>
-            <button className="text-xs text-slate-500 hover:text-slate-300" onClick={() => void refresh()} title="refresh">
-              {loading ? '…' : '↻'}
-            </button>
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              {loading ? <span>updating…</span> : refreshInSec !== null && <span>updating in {refreshInSec}s</span>}
+              <button className="hover:text-slate-300" onClick={() => void refresh()} title="refresh">
+                ↻
+              </button>
+            </div>
           </div>
 
           <div className="text-xs">

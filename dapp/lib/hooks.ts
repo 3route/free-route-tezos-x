@@ -45,7 +45,7 @@ const useBalancesStore = create<BalancesState>((set) => ({
   apply: (p) => set(p),
 }));
 
-const BALANCES_REFRESH_MS = 30_000; // same cadence as the rate quote and the buy re-quote
+export const BALANCES_REFRESH_MS = 30_000; // same cadence as the rate quote and the buy re-quote
 
 // Mount ONCE (top-level) with the connected addresses + pay tokens. Fetches now, on every global bump (refresh),
 // and every 30s; writes into the shared store. No-op until both addresses and the token list are available.
@@ -69,9 +69,12 @@ export function useBalancesSync(aliasAddress: string | null, michelsonAddress: s
     };
     void fetchAll();
     const id = setInterval(fetchAll, BALANCES_REFRESH_MS);
+    const onVisible = () => document.visibilityState === 'visible' && void fetchAll(); // refresh when the tab regains focus
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
       clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aliasAddress, michelsonAddress, payTokens, bump]);
