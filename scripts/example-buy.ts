@@ -61,12 +61,12 @@ const swap = await swapper.client.getSwap({
   receiver: alias,
   slippagePercent: SLIPPAGE_BPS / 100,
 });
-const srcAmount = BigInt(swap.srcAmount); // payToken the swap will pull
+const srcAmount = swap.srcAmount; // payToken the swap will pull
 const router = swap.tx.to;
 
 // 2. let the SDK read the on-chain allowance (alias -> router) and pick the safe & minimal approval mode.
 const approval = await resolveApproval({ evmRpc: EVM_RPC, token: payToken.address, owner: alias, spender: router, amount: srcAmount });
-console.log(`buyer ${account} · pay ≤ ${srcAmount} ${PAY_SYMBOL} · receive ≥ ${fromEvm(BigInt(swap.dstAmountMin), XTZ.address)} mutez · router ${router}`);
+console.log(`buyer ${account} · pay ≤ ${srcAmount} ${PAY_SYMBOL} · receive ≥ ${fromEvm(swap.dstAmountMin, XTZ.address)} mutez · router ${router}`);
 console.log(`need ${srcAmount} ${PAY_SYMBOL} → approval='${approval}'`);
 
 // 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
