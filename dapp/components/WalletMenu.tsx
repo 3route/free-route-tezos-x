@@ -8,6 +8,33 @@ import { CFG } from '@/lib/config';
 const tzktLink = (a: string) => `${CFG.explorer}/${a}`;
 const evmLink = (a: string) => `${CFG.evmExplorer}/address/${a}`;
 
+// Tiny copy-to-clipboard button (shows a check for ~1.2s after copying).
+function CopyButton({ value }: { value: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      className="shrink-0 text-slate-500 hover:text-slate-300"
+      title="copy"
+      onClick={() => {
+        void navigator.clipboard.writeText(value);
+        setDone(true);
+        setTimeout(() => setDone(false), 1200);
+      }}
+    >
+      {done ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="2" />
+          <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 // Header wallet control: Connect button when disconnected; otherwise an address pill that opens a
 // dropdown with balances + a Disconnect button.
 export function WalletMenu() {
@@ -74,9 +101,12 @@ export function WalletMenu() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-wide text-slate-600">Michelson</span>
-                <a href={tzktLink(michelsonAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-accent hover:underline" title={michelsonAddress ?? ''}>
-                  {short(michelsonAddress ?? '', 6)}
-                </a>
+                <div className="flex items-center gap-1.5">
+                  <a href={tzktLink(michelsonAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-accent hover:underline" title={michelsonAddress ?? ''}>
+                    {short(michelsonAddress ?? '', 6)}
+                  </a>
+                  <CopyButton value={michelsonAddress ?? ''} />
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">XTZ</span>
@@ -87,9 +117,12 @@ export function WalletMenu() {
             <div className="mt-3 space-y-1.5 border-t border-edge pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-wide text-slate-600">EVM alias</span>
-                <a href={evmLink(aliasAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-accent hover:underline" title={aliasAddress ?? ''}>
-                  {short(aliasAddress ?? '', 6)}
-                </a>
+                <div className="flex items-center gap-1.5">
+                  <a href={evmLink(aliasAddress ?? '')} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-accent hover:underline" title={aliasAddress ?? ''}>
+                    {short(aliasAddress ?? '', 6)}
+                  </a>
+                  <CopyButton value={aliasAddress ?? ''} />
+                </div>
               </div>
               {payTokens.map((t) => (
                 <div key={t.address} className="flex items-center justify-between">
