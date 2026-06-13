@@ -1,5 +1,5 @@
 'use client';
-import { fmtSig, mutezToXtz } from '@/lib/format';
+import { fmtUnits, mutezToXtz } from '@/lib/format';
 import { nftName } from '@/lib/names';
 import { CFG } from '@/lib/config';
 import type { ThreeRouteToken } from '@/lib/sdk';
@@ -53,10 +53,10 @@ export function ReceiptModal({ receipt: r, token, tokenId, onClose }: { receipt:
         <div className="mb-3 rounded-xl border border-edge bg-ink/40 p-3 text-sm">
           <div className="label mb-2">EVM Side</div>
           <div className="space-y-1.5">
-            <Line label={`${sym} paid (alias)`} value={`−${fmtSig(r.usdcSpent, token.decimals, 6)} ${sym}`} />
+            <Line label={`${sym} paid (alias)`} value={`−${fmtUnits(r.usdcSpent, token.decimals, token.decimals)} ${sym}`} />
             <div className="flex justify-between font-mono text-xs text-slate-500">
               <span className="font-sans text-slate-600">alias {sym} balance</span>
-              <span>{fmtSig(r.usdcBefore, token.decimals, 6)} → {fmtSig(r.usdcAfter, token.decimals, 6)}</span>
+              <span>{fmtUnits(r.usdcBefore, token.decimals, token.decimals)} → {fmtUnits(r.usdcAfter, token.decimals, token.decimals)}</span>
             </div>
           </div>
         </div>
@@ -84,7 +84,7 @@ export function ReceiptModal({ receipt: r, token, tokenId, onClose }: { receipt:
         <div className="mb-3 rounded-xl border border-edge bg-ink/40 p-3 text-sm">
           <div className="label mb-2">Checks</div>
           <ul className="space-y-1 text-xs">
-            <Check ok={r.paidAsQuoted}>Paid exactly the quoted {sym} ({fmtSig(r.usdcSpent, token.decimals, 6)})</Check>
+            <Check ok={r.paidAsQuoted}>Paid exactly the quoted {sym} ({fmtUnits(r.usdcSpent, token.decimals, token.decimals)})</Check>
             {r.actualChange > 0n && (
               <Check ok={r.changeWithinExpected}>Change returned within the quoted estimate (≤ {xtz(r.expectedChange)})</Check>
             )}

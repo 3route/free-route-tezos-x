@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@/lib/wallet';
 import { useBalances, useTokens } from '@/lib/hooks';
-import { fmtSig, mutezToXtz, short } from '@/lib/format';
+import { fmtUnits, short } from '@/lib/format';
 import { CFG } from '@/lib/config';
 
 const tzktLink = (a: string) => `${CFG.explorer}/${a}`;
@@ -56,7 +56,7 @@ export function WalletMenu() {
             </button>
           </div>
 
-          <div className="text-sm">
+          <div className="text-xs">
             {/* Michelson side — native XTZ on the tz1 address (header carries the address) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -67,7 +67,7 @@ export function WalletMenu() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">XTZ</span>
-                <span className="font-mono">{xtz === null ? '…' : mutezToXtz(xtz, 4)}</span>
+                <span className="font-mono">{xtz === null ? '…' : fmtUnits(xtz, 6, 6)}</span>
               </div>
             </div>
             {/* EVM side — ERC20s held by the alias (header carries the alias address) */}
@@ -81,7 +81,7 @@ export function WalletMenu() {
               {payTokens.map((t) => (
                 <div key={t.address} className="flex items-center justify-between">
                   <span className="text-slate-400">{t.symbol}</span>
-                  <span className="font-mono">{erc[t.address] === undefined ? '…' : fmtSig(erc[t.address] ?? 0n, t.decimals, 4)}</span>
+                  <span className="font-mono">{erc[t.address] === undefined ? '…' : fmtUnits(erc[t.address] ?? 0n, t.decimals, t.decimals)}</span>
                 </div>
               ))}
             </div>
