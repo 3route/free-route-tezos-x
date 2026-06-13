@@ -10,6 +10,7 @@ import { CFG } from '@/lib/config';
 import { BridgeModal } from './BridgeModal';
 
 const XTZ_FEE_BUFFER = 50_000n; // mutez left for op fees when "Max"-ing an XTZ swap
+const QUOTE_REFRESH_MS = 30_000; // auto-refresh the To preview, like the buy/bridge modal
 
 export function BridgePanel() {
   const { connected, michelsonAddress, connect } = useWallet();
@@ -23,7 +24,10 @@ export function BridgePanel() {
   const [open, setOpen] = useState(false);
   const [outPreview, setOutPreview] = useState<bigint | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [previewAt, setPreviewAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const slippageBps = useUi((s) => s.slippageBps);
+  const bump = useUi((s) => s.bump); // bumped by refresh() after a swap/buy — re-quote (liquidity moved)
 
   // default To to USDC (fall back to the first ERC20) once the registry loads
   useEffect(() => {
@@ -37,31 +41,47 @@ export function BridgePanel() {
   const amountBase = fromTok ? parseUnits(amountStr, fromTok.decimals) : null;
   const insufficient = amountBase !== null && fromTok ? amountBase > balanceOf(fromTok) : false;
   const samePair = fromAddr === toAddr;
+  const lowXtz = xtz !== null && xtz < 1_000_000n; // < 1 XTZ — nudge the user to the faucet
 
   // live output preview in the To field — pricing-only getQuote (no calldata/approval); works before connecting.
+  // re-quotes on input change (debounced) AND every QUOTE_REFRESH_MS so the estimate stays fresh.
   useEffect(() => {
     if (!fromTok || !toTok || samePair || amountBase === null || amountBase <= 0n) {
       setOutPreview(null);
+      setPreviewAt(null);
       return;
     }
     let cancelled = false;
-    setPreviewing(true);
-    const id = setTimeout(async () => {
+    const run = async () => {
+      setPreviewing(true);
       try {
         const q = await threeRoute.getQuote({ src: fromTok.address, dst: toTok.address, amount: toEvm(amountBase, fromTok.address), exactOut: false, slippagePercent: slippageBps / 100 });
-        if (!cancelled) setOutPreview(fromEvm(q.dstAmount, toTok.address));
+        if (!cancelled) {
+          setOutPreview(fromEvm(q.dstAmount, toTok.address));
+          setPreviewAt(Date.now());
+        }
       } catch {
         if (!cancelled) setOutPreview(null);
       } finally {
         if (!cancelled) setPreviewing(false);
       }
-    }, 400);
+    };
+    const debounce = setTimeout(run, 400);
+    const interval = setInterval(run, QUOTE_REFRESH_MS);
     return () => {
       cancelled = true;
-      clearTimeout(id);
+      clearTimeout(debounce);
+      clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromAddr, toAddr, amountStr, slippageBps]);
+  }, [fromAddr, toAddr, amountStr, slippageBps, bump]);
+
+  // 1s tick for the "updating in Ns" countdown
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const refreshInSec = previewAt ? Math.max(0, Math.round(QUOTE_REFRESH_MS / 1000) - Math.round((now - previewAt) / 1000)) : null;
   const canReview = connected && !!fromTok && !!toTok && amountBase !== null && amountBase > 0n && !samePair && !insufficient;
 
   const pickFrom = (a: string) => {
@@ -98,7 +118,7 @@ export function BridgePanel() {
     <div className="mx-auto max-w-md space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Bridge · swap balance</h2>
-        <a href={CFG.faucet} target="_blank" rel="noreferrer" className="btn-ghost text-xs">
+        <a href={CFG.faucet} target="_blank" rel="noreferrer" className={`btn-ghost text-xs ${lowXtz ? 'animate-pulse border-accent text-accent' : ''}`}>
           Get XTZ ↗
         </a>
       </div>
@@ -146,6 +166,10 @@ export function BridgePanel() {
             {tokenSelect(toAddr, pickTo)}
           </div>
         </div>
+
+        {(previewing || refreshInSec !== null) && (
+          <p className="text-[11px] text-slate-500">quote via 3route{previewing ? ' · updating…' : ` · updating in ${refreshInSec}s`}</p>
+        )}
 
         {insufficient && <div className="text-xs text-amber-400">Insufficient {fromTok?.symbol} balance.</div>}
 
