@@ -6,6 +6,7 @@ import { useUi } from '@/lib/ui';
 import { XTZ, XTZ_ADDRESS, fromEvm, isXtz, threeRoute, toEvm } from '@/lib/sdk';
 import type { ThreeRouteToken } from '@/lib/sdk';
 import { fmtSig, fmtUnits, parseUnits } from '@/lib/format';
+import { CFG } from '@/lib/config';
 import { BridgeModal } from './BridgeModal';
 
 const XTZ_FEE_BUFFER = 50_000n; // mutez left for op fees when "Max"-ing an XTZ swap
@@ -95,7 +96,12 @@ export function BridgePanel() {
 
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <h2 className="text-lg font-semibold">Bridge · swap balance</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Bridge · swap balance</h2>
+        <a href={CFG.faucet} target="_blank" rel="noreferrer" className="btn-ghost text-xs">
+          Get XTZ ↗
+        </a>
+      </div>
 
       <div className="card space-y-3">
         {/* From */}

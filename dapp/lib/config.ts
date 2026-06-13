@@ -10,6 +10,7 @@ export const CFG = {
   // ERC20 metadata standard; XTZ shown with 6 dec (mutez). 3route reports decimals per token too.
   explorer: 'https://previewnet.tezosx.tzkt.io', // tzkt — Michelson side (tz/KT addresses)
   evmExplorer: process.env.NEXT_PUBLIC_EVM_EXPLORER ?? 'https://blockscout.previewnet.tezosx.nomadic-labs.com', // Blockscout — EVM (0x) side
+  faucet: process.env.NEXT_PUBLIC_FAUCET ?? 'https://faucet.previewnet.tezosx.nomadic-labs.com', // funds tz1 + 0x with testnet XTZ
 } as const;
 
 export const FA2_LEDGER_BIGMAP = 442; // token_id -> owner (tzkt)
