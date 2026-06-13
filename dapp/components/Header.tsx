@@ -1,16 +1,17 @@
 'use client';
-import { useUi, type Mode } from '@/lib/ui';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { WalletMenu } from './WalletMenu';
 
-const MODES: Array<{ key: Mode; label: string }> = [
-  { key: 'buyer', label: 'Buyer' },
-  { key: 'seller', label: 'Seller' },
-  { key: 'owned', label: 'My NFTs' },
-  { key: 'bridge', label: 'Bridge' },
+const MODES = [
+  { href: '/', label: 'Buyer' },
+  { href: '/seller', label: 'Seller' },
+  { href: '/owned', label: 'My NFTs' },
+  { href: '/bridge', label: 'Bridge' },
 ];
 
 export function Header() {
-  const { mode, setMode } = useUi();
+  const pathname = usePathname();
 
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-ink/80 backdrop-blur">
@@ -23,18 +24,18 @@ export function Header() {
           </div>
         </div>
 
-        {/* mode toggle */}
+        {/* mode toggle — real routes */}
         <div className="flex rounded-xl border border-edge p-0.5">
           {MODES.map((m) => (
-            <button
-              key={m.key}
-              onClick={() => setMode(m.key)}
+            <Link
+              key={m.href}
+              href={m.href}
               className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm transition ${
-                mode === m.key ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-200'
+                pathname === m.href ? 'bg-accent text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {m.label}
-            </button>
+            </Link>
           ))}
         </div>
 
