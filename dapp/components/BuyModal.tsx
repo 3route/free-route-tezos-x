@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import type { ParamsWithKind } from '@taquito/taquito';
 import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
@@ -298,7 +299,10 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
 
               {!enough && (
                 <div className="text-xs text-amber-400">
-                  Alias balance ({fmtSig(bal, token.decimals, 4)} {token.symbol}) is below the required amount.
+                  Alias balance ({fmtSig(bal, token.decimals, 4)} {token.symbol}) is below the required amount.{' '}
+                  <Link href="/bridge" className="font-medium underline hover:text-amber-300">
+                    Get {token.symbol} on the Bridge ↗
+                  </Link>
                 </div>
               )}
             </div>
