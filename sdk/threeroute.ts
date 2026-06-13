@@ -13,56 +13,118 @@ export interface ThreeRouteToken {
   readonly decimals: number;
 }
 
-// /quote — no calldata. One side is your input, the other is the quote (which is which depends on exactOut).
-export interface QuoteResponse {
-  srcAmount: string; // input base units  (strict when exactOut=false)
-  dstAmount: string; // output base units (strict when exactOut=true)
+// Wire DTOs — what /quote and /swap return; amounts are decimal strings (JSON can't carry bigint).
+export interface QuoteResponseDto {
+  srcAmount: string;
+  dstAmount: string;
 }
-
-export interface SwapTx {
+export interface SwapTxDto {
   from: EvmAddress;
   to: EvmAddress; // 3route router
-  data: Hex; // ready calldata (exact-input shape: param0=amountIn=srcAmount, param1=amountOutMin)
-  value: string; // wei msg.value — nonzero exactly when src is native XTZ
+  data: Hex; // router calldata
+  value: string; // wei msg.value — nonzero only for native-XTZ input
   gas: string;
   gasPrice: string;
 }
+export interface SwapResponseDto extends QuoteResponseDto {
+  dstAmountMin: string; // guaranteed minimum output
+  tx: SwapTxDto;
+}
 
-// /swap — a quote plus the on-chain pieces.
-export interface SwapResponse extends QuoteResponse {
-  dstAmountMin: string; // guaranteed minimum output, baked into the calldata as amountOutMin
+// Domain models — amounts parsed to bigint (like ethers/viem); calldata/addresses stay strings.
+export interface Quote {
+  srcAmount: bigint;
+  dstAmount: bigint;
+}
+export interface SwapTx {
+  from: EvmAddress;
+  to: EvmAddress;
+  data: Hex;
+  value: bigint;
+  gas: bigint;
+  gasPrice: bigint;
+}
+export interface Swap {
+  srcAmount: bigint;
+  dstAmount: bigint;
+  dstAmountMin: bigint;
   tx: SwapTx;
 }
 
-export interface SwapQuery {
-  src: EvmAddress; // input token  (XTZ_ADDRESS for native XTZ)
-  dst: EvmAddress; // output token (XTZ_ADDRESS for native XTZ)
-  amount: bigint; // base units of the exact side (src when exact-in, dst when exact-out)
-  exactOut?: boolean; // false = exact-input (default); true = exact-output
-  slippagePercent?: number; // server-side slippage in percent; default 1
-  from?: EvmAddress; // payer / msg.sender (the alias) — required by getSwap, optional for a bare quote
-  receiver?: EvmAddress; // output recipient (the alias) — required by getSwap, optional for a bare quote
+// DTO <-> model codecs. Bidirectional: a proxy parses the upstream DTO, then re-serializes for its own JSON hop.
+export const parseQuote = (d: QuoteResponseDto): Quote => ({
+  srcAmount: BigInt(d.srcAmount),
+  dstAmount: BigInt(d.dstAmount),
+});
+export const serializeQuote = (q: Quote): QuoteResponseDto => ({
+  srcAmount: q.srcAmount.toString(),
+  dstAmount: q.dstAmount.toString(),
+});
+const parseTx = (d: SwapTxDto): SwapTx => ({
+  from: d.from,
+  to: d.to,
+  data: d.data,
+  value: BigInt(d.value),
+  gas: BigInt(d.gas),
+  gasPrice: BigInt(d.gasPrice),
+});
+const serializeTx = (t: SwapTx): SwapTxDto => ({
+  from: t.from,
+  to: t.to,
+  data: t.data,
+  value: t.value.toString(),
+  gas: t.gas.toString(),
+  gasPrice: t.gasPrice.toString(),
+});
+export const parseSwap = (d: SwapResponseDto): Swap => ({
+  srcAmount: BigInt(d.srcAmount),
+  dstAmount: BigInt(d.dstAmount),
+  dstAmountMin: BigInt(d.dstAmountMin),
+  tx: parseTx(d.tx),
+});
+export const serializeSwap = (s: Swap): SwapResponseDto => ({
+  srcAmount: s.srcAmount.toString(),
+  dstAmount: s.dstAmount.toString(),
+  dstAmountMin: s.dstAmountMin.toString(),
+  tx: serializeTx(s.tx),
+});
+
+// Pricing query (getQuote). No from/receiver — per rust-3route QuoteRequest.
+export interface QuoteQuery {
+  src: EvmAddress; // XTZ_ADDRESS for native XTZ
+  dst: EvmAddress;
+  amount: bigint; // base units of the exact side (dst when exactOut)
+  exactOut?: boolean; // default false (exact-input)
+  slippagePercent?: number; // default 1
+}
+
+// Swap query (getSwap). Per rust-3route SwapRequest: `from` required, `receiver` optional (defaults to from).
+export interface SwapQuery extends QuoteQuery {
+  from: EvmAddress;
+  receiver?: EvmAddress;
 }
 
 export interface ThreeRouteClientOptions {
   baseUrl: string; // '' to hit a same-origin proxy (browser/CORS); otherwise the server origin
   chainId: number;
-  /**
-   * HTTP Basic credential, sent verbatim after "Basic " — the ENCODED token, NOT a raw secret. By the HTTP
-   * Basic scheme that's base64("user:pass") (for key-style auth usually base64(`${apiKey}:`)). Omit for a
-   * keyless server. Never set this on a browser-side client — keep the key server-side (see authHeaders).
-   */
+  /** HTTP Basic credential — the ENCODED token (base64("user:pass")), sent after "Basic ". Server-side only;
+   *  never set on a browser client. Omit for a keyless server. */
   apiKey?: string;
 }
 
-// The 3route auth scheme in ONE place: the client AND any same-origin proxy (BFF) build the header from here,
-// so the encoding can't drift between them. `apiKey` is the ThreeRouteClientOptions.apiKey credential. Returns
-// {} when no key, so callers can spread it unconditionally: { 'Content-Type': ..., ...authHeaders(key) }.
+// The 3route auth scheme in one place — client and proxy both build the header here, so it can't drift.
 export function authHeaders(apiKey?: string): Record<string, string> {
   return apiKey ? { Authorization: `Basic ${apiKey}` } : {};
 }
 
-export class ThreeRouteClient {
+// The 3route read surface as an interface — the keyed client and the browser BFF shim both implement it.
+export interface ThreeRouteApi {
+  getTokens(): Promise<ThreeRouteToken[]>;
+  getQuote(query: QuoteQuery): Promise<Quote>;
+  getSwap(query: SwapQuery): Promise<Swap>;
+}
+
+export class ThreeRouteClient implements ThreeRouteApi {
   constructor(private readonly opts: ThreeRouteClientOptions) {}
 
   async getTokens(): Promise<ThreeRouteToken[]> {
@@ -70,24 +132,21 @@ export class ThreeRouteClient {
     return Object.values(tokens);
   }
 
-  // Pricing only, no calldata. Cheap enough to poll for live rates.
-  getQuote(query: SwapQuery): Promise<QuoteResponse> {
-    return this.request<QuoteResponse>(`quote?${this.queryString(query)}`);
+  // Pricing only, no calldata.
+  async getQuote(query: QuoteQuery): Promise<Quote> {
+    return parseQuote(await this.request<QuoteResponseDto>(`quote?${this.queryString(query)}`));
   }
 
-  // Pricing + ready router calldata + guaranteed minimum output. `from`/`receiver` must be set.
-  getSwap(query: SwapQuery): Promise<SwapResponse> {
-    return this.request<SwapResponse>(`swap?${this.queryString(query)}`);
+  // Pricing + router calldata + guaranteed minimum output.
+  async getSwap(query: SwapQuery): Promise<Swap> {
+    return parseSwap(await this.request<SwapResponseDto>(`swap?${this.queryString(query)}`));
   }
 
-  private queryString(q: SwapQuery): string {
-    const p = new URLSearchParams({
-      src: q.src,
-      dst: q.dst,
-      amount: q.amount.toString(),
-      slippage: String(q.slippagePercent ?? 1),
-      isExactOutput: String(q.exactOut ?? false),
-    });
+  // Optional params sent only when set — the server owns the defaults (slippage=1, exact-input).
+  private queryString(q: QuoteQuery & Partial<Pick<SwapQuery, 'from' | 'receiver'>>): string {
+    const p = new URLSearchParams({ src: q.src, dst: q.dst, amount: q.amount.toString() });
+    if (q.exactOut !== undefined) p.set('isExactOutput', String(q.exactOut));
+    if (q.slippagePercent !== undefined) p.set('slippage', String(q.slippagePercent));
     if (q.from) p.set('from', q.from);
     if (q.receiver) p.set('receiver', q.receiver);
     return p.toString();

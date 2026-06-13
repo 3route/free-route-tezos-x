@@ -36,8 +36,8 @@ export const buildCallEvm = (
 });
 
 // ERC20 approve(spender, amount) via call_evm — lets the 3route router pull `amount` of `token` from the alias.
-export const buildErc20Approve = (gateway: string, token: EvmAddress, spender: EvmAddress, amount: bigint | string): ParamsWithKind =>
-  buildCallEvm(gateway, token, SIG_APPROVE, abi.encode(['address', 'uint256'], [spender, amount.toString()]) as Hex);
+export const buildErc20Approve = (gateway: string, token: EvmAddress, spender: EvmAddress, amount: bigint): ParamsWithKind =>
+  buildCallEvm(gateway, token, SIG_APPROVE, abi.encode(['address', 'uint256'], [spender, amount]) as Hex);
 
 // Assemble one atomic batch from operations/groups, in order. Accepts a mix of single ops and op-arrays
 // (e.g. `buildBatchTransaction(swapOps, fulfillOp)`) and flattens them — the consumer signs/sends the result.

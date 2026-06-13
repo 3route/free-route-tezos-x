@@ -8,7 +8,7 @@ import { michelsonToAlias } from './address.js';
 import type { EvmAddress, Hex, MichelsonAddress } from './address.js';
 import { xtzMutezToWei, xtzWeiToMutez } from './units.js';
 import { ThreeRouteClient } from './threeroute.js';
-import type { SwapResponse, ThreeRouteToken } from './threeroute.js';
+import type { Swap, ThreeRouteToken } from './threeroute.js';
 import { SWAP_SIG, buildCallEvm, buildErc20Approve } from './operations.js';
 import type { ApprovalMode } from './approval.js';
 import { tezosXMainnet } from './networks.js';
@@ -60,9 +60,9 @@ export interface BuildSwapOperationOptions {
 
 // Pure: turn a 3route /swap response into ready-to-sign Tezos ops, no network. ERC20 input -> approve(s) + swap
 // per `approval`; native-XTZ input -> a single swap op carrying the XTZ as msg.value. Quoting/sizing upstream.
-export function buildSwapOperation(swap: SwapResponse, opts: BuildSwapOperationOptions): ParamsWithKind[] {
+export function buildSwapOperation(swap: Swap, opts: BuildSwapOperationOptions): ParamsWithKind[] {
   const native = isXtz(opts.srcAddress);
-  const swapOp = buildCallEvm(opts.gateway, swap.tx.to, SWAP_SIG, swap.tx.data.slice(10) as Hex, native ? xtzWeiToMutez(BigInt(swap.tx.value)) : 0n);
+  const swapOp = buildCallEvm(opts.gateway, swap.tx.to, SWAP_SIG, swap.tx.data.slice(10) as Hex, native ? xtzWeiToMutez(swap.tx.value) : 0n);
   const approval = opts.approval ?? 'resetThenApprove';
   if (native || approval === 'none') return [swapOp]; // native XTZ needs no approve; 'none' = caller manages it
   const approve = buildErc20Approve(opts.gateway, opts.srcAddress, swap.tx.to, swap.srcAmount);
@@ -114,11 +114,11 @@ export class ThreeRouteTezosX {
     return {
       ops,
       details: {
-        src: { token: src, amount: fromEvm(BigInt(swap.srcAmount), src.address) },
+        src: { token: src, amount: fromEvm(swap.srcAmount, src.address) },
         dst: {
           token: dst,
-          expected: fromEvm(BigInt(swap.dstAmount), dst.address),
-          min: fromEvm(BigInt(swap.dstAmountMin), dst.address),
+          expected: fromEvm(swap.dstAmount, dst.address),
+          min: fromEvm(swap.dstAmountMin, dst.address),
         },
         exactOut,
         slippageBps,
