@@ -11,6 +11,18 @@ export function fmtUnits(raw: bigint | string | number, decimals: number, maxFra
 
 export const mutezToXtz = (mutez: bigint | string | number, maxFrac = 6): string => fmtUnits(mutez, 6, maxFrac);
 
+// Inverse of fmtUnits: a human decimal string -> base units. Returns null for empty/invalid input.
+export function parseUnits(human: string, decimals: number): bigint | null {
+  if (human === '' || human === '.' || !/^\d*\.?\d*$/.test(human)) return null;
+  const [whole, frac = ''] = human.split('.');
+  const f = (frac + '0'.repeat(decimals)).slice(0, decimals);
+  try {
+    return BigInt(whole || '0') * 10n ** BigInt(decimals) + BigInt(f || '0');
+  } catch {
+    return null;
+  }
+}
+
 // Significant-figure formatting — keeps small values readable instead of rounding to "0"
 // (e.g. 0.00000185 VNXAU rather than 0.0000). `sig` = significant digits to keep.
 export function fmtSig(raw: bigint | string | number, decimals: number, sig = 4): string {

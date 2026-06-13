@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { DEFAULT_SLIPPAGE_BPS } from './config';
 
-export type Mode = 'buyer' | 'seller' | 'owned';
+export type Mode = 'buyer' | 'seller' | 'owned' | 'bridge';
 
 interface UiState {
   mode: Mode;

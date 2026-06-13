@@ -4,8 +4,8 @@ import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind, TezosToolkit } from '@taquito/taquito';
 import type { MichelsonV1Expression } from '@taquito/rpc';
 import { CFG } from './config';
-import { XTZ, buildBatchTransaction, buildSwapOperation, fromEvm, michelsonToAlias, objkt, resolveApproval, targetForMinOut, threeRoute, toEvm } from './sdk';
-import type { ThreeRouteToken } from './sdk';
+import { XTZ, buildBatchTransaction, buildSwapOperation, fromEvm, isXtz, michelsonToAlias, objkt, resolveApproval, targetForMinOut, threeRoute, toEvm } from './sdk';
+import type { ApprovalMode, ThreeRouteToken } from './sdk';
 import { fmtSig } from './format';
 
 const MAX_GAS_PER_BATCH = 2_500_000; // stay safely under the per-op-group ceiling; split if exceeded
@@ -88,7 +88,7 @@ export async function buildBuyBatch(
   const target = targetForMinOut(BigInt(ask.priceMutez), bps);
   const alias = michelsonToAlias(buyerMichelsonAddress);
 
-  // 1. swap: exact-out payToken -> XTZ (price + route + calldata). 2. read the on-chain allowance -> pick the minimal approval mode.
+  // 1. quote exact-out payToken -> XTZ. 2. read the on-chain allowance -> pick the minimal approval mode.
   const swap = await threeRoute.getSwap({
     src: payToken.address,
     dst: XTZ.address,
@@ -137,6 +137,69 @@ export async function buildBuyBatch(
     ],
   };
   return { ops, details };
+}
+
+// ---------------- BRIDGE: swap any token -> any token (XTZ <-> ERC20, ERC20 <-> ERC20) ----------------
+export interface SwapDetails {
+  src: ThreeRouteToken;
+  dst: ThreeRouteToken;
+  payAmount: bigint; // src consumer units actually spent (== input, since exact-input)
+  expectedOut: bigint; // dst consumer units expected
+  minOut: bigint; // dst consumer units guaranteed (floor)
+  slippageBps: number;
+  router: string;
+  approval: ApprovalMode; // 'none' for native XTZ input, else allowance-aware
+  steps: Array<{ kind: string; detail: string }>; // the atomic op-group, mirrors the review
+}
+
+// exact-input swap signed by the connected wallet. `amount` is src consumer units (mutez for XTZ, base for ERC20).
+export async function buildSwapBatch(
+  account: string,
+  src: ThreeRouteToken,
+  dst: ThreeRouteToken,
+  amount: bigint,
+  slippageBps: number,
+): Promise<{ ops: ParamsWithKind[]; details: SwapDetails }> {
+  const alias = michelsonToAlias(account);
+  const swap = await threeRoute.getSwap({
+    src: src.address,
+    dst: dst.address,
+    amount: toEvm(amount, src.address),
+    exactOut: false,
+    from: alias,
+    receiver: alias,
+    slippagePercent: slippageBps / 100,
+  });
+  const approval: ApprovalMode = isXtz(src.address)
+    ? 'none' // native XTZ input carries value as msg.value — no approve
+    : await resolveApproval({ evmRpc: CFG.evmRpc, token: src.address, owner: alias, spender: swap.tx.to, amount: swap.srcAmount });
+  const ops = buildSwapOperation(swap, { gateway: CFG.gateway, srcAddress: src.address, approval });
+  const payAmount = fromEvm(swap.srcAmount, src.address);
+
+  // steps mirror the ACTUAL ops (1 / 2 / 3, depending on the approval mode).
+  const approveExact = { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(payAmount, src.decimals, 6)} ${src.symbol} to the 3route router` };
+  const approveSteps =
+    approval === 'resetThenApprove'
+      ? [{ kind: 'approve (call_evm)', detail: `reset ${src.symbol} allowance to 0 (safe re-approval)` }, approveExact]
+      : approval === 'approve'
+        ? [approveExact]
+        : []; // 'none' — native XTZ input (carries msg.value), or allowance already covers it
+  const landing = isXtz(dst.address) ? 'auto-forwards to your Michelson address' : 'received on your EVM alias';
+
+  return {
+    ops,
+    details: {
+      src,
+      dst,
+      payAmount,
+      expectedOut: fromEvm(swap.dstAmount, dst.address),
+      minOut: fromEvm(swap.dstAmountMin, dst.address),
+      slippageBps,
+      router: swap.tx.to,
+      approval,
+      steps: [...approveSteps, { kind: 'swap (call_evm)', detail: `${src.symbol} → ${dst.symbol} · ${landing}` }],
+    },
+  };
 }
 
 // Send a prepared op group as ONE atomic wallet batch (the buy must stay atomic — never chunked).

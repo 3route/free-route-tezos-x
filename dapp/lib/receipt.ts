@@ -7,6 +7,8 @@
 //   - fulfillAmount       — XTZ the buyer sent to objkt via fulfill_ask (the op value).
 //   - nftOwned            — FA2 ledger now shows the buyer as the token owner (real on-chain check).
 import { CFG } from './config';
+import { isXtz } from './sdk';
+import type { ThreeRouteToken } from './sdk';
 import { fetchErc20Balance, fetchOwner, fetchXtzBalance } from './tzkt';
 
 export interface BuyReceipt {
@@ -40,11 +42,11 @@ interface OpItem {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// tzkt lags the node by a few seconds — poll until the group (incl. the fulfill_ask) is indexed.
-async function fetchOpGroup(opHash: string, tries = 8, delayMs = 1500): Promise<OpItem[]> {
+// tzkt lags the node by a few seconds — poll until the group is indexed (`ready` confirms the key op is present).
+async function fetchOpGroup(opHash: string, ready: (items: OpItem[]) => boolean, tries = 8, delayMs = 1500): Promise<OpItem[]> {
   for (let i = 0; i < tries; i++) {
     const items = (await fetch(`${CFG.tzktApi}/operations/${opHash}`).then((r) => r.json()).catch(() => [])) as OpItem[];
-    if (Array.isArray(items) && items.some((o) => o.parameter?.entrypoint === 'fulfill_ask')) return items;
+    if (Array.isArray(items) && ready(items)) return items;
     await sleep(delayMs);
   }
   throw new Error('operation not indexed yet');
@@ -60,7 +62,7 @@ export async function buildBuyReceipt(params: {
   expectedChange: bigint; // BuyDetails.changeMutez
   before: { xtz: bigint; usdc: bigint };
 }): Promise<BuyReceipt> {
-  const items = await fetchOpGroup(params.opHash);
+  const items = await fetchOpGroup(params.opHash, (o) => o.some((x) => x.parameter?.entrypoint === 'fulfill_ask'));
 
   // value the buyer sent to the marketplace (fulfill_ask carries the XTZ price).
   const fulfillAmount = BigInt(items.find((o) => o.parameter?.entrypoint === 'fulfill_ask')?.amount ?? 0);
@@ -99,5 +101,69 @@ export async function buildBuyReceipt(params: {
     paidAsQuoted: usdcSpent === params.quotedSrcAmount,
     changeWithinExpected: xtzNet + networkFee <= params.expectedChange,
     nftOwned: owner === params.buyer,
+  };
+}
+
+// ---------------- BRIDGE: post-swap reconciliation (any token -> any token), EXACT measured data ----------------
+// XTZ lives on the tz1 account (and pays the op fee); ERC20s live on the alias. We isolate the swap amount by
+// adding the measured fee back on whichever side is native XTZ.
+export interface SwapReceipt {
+  opHash: string;
+  src: ThreeRouteToken;
+  dst: ThreeRouteToken;
+  srcSpent: bigint; // src consumer units actually spent
+  dstReceived: bigint; // dst consumer units actually received
+  networkFee: bigint; // mutez, Σ (bakerFee + storageFee + allocationFee)
+  srcBefore: bigint; // relevant src-token balance (consumer units) before/after
+  srcAfter: bigint;
+  dstBefore: bigint;
+  dstAfter: bigint;
+  quotedPay: bigint; // SwapDetails.payAmount
+  minOut: bigint; // SwapDetails.minOut
+  paidAsQuoted: boolean; // srcSpent === quotedPay
+  receivedAtLeastMin: boolean; // dstReceived >= minOut
+}
+
+export async function buildSwapReceipt(params: {
+  opHash: string;
+  account: string; // Michelson address (tz1)
+  aliasAddress: string;
+  src: ThreeRouteToken;
+  dst: ThreeRouteToken;
+  quotedPay: bigint;
+  minOut: bigint;
+  before: { xtz: bigint; src: bigint; dst: bigint }; // src/dst = that token's balance at snapshot (consumer units)
+}): Promise<SwapReceipt> {
+  const items = await fetchOpGroup(params.opHash, (o) => o.some((x) => x.parameter?.entrypoint === 'call_evm'));
+  const networkFee = items.reduce((s, o) => s + BigInt(o.bakerFee ?? 0) + BigInt(o.storageFee ?? 0) + BigInt(o.allocationFee ?? 0), 0n);
+
+  const srcXtz = isXtz(params.src.address);
+  const dstXtz = isXtz(params.dst.address);
+  const [xtzAfter, ercSrcAfter, ercDstAfter] = await Promise.all([
+    fetchXtzBalance(params.account),
+    srcXtz ? Promise.resolve(0n) : fetchErc20Balance(params.src.address, params.aliasAddress),
+    dstXtz ? Promise.resolve(0n) : fetchErc20Balance(params.dst.address, params.aliasAddress),
+  ]);
+
+  const srcAfter = srcXtz ? xtzAfter : ercSrcAfter;
+  const dstAfter = dstXtz ? xtzAfter : ercDstAfter;
+  const srcSpent = srcXtz ? params.before.xtz - xtzAfter - networkFee : params.before.src - srcAfter;
+  const dstReceived = dstXtz ? xtzAfter - params.before.xtz + networkFee : dstAfter - params.before.dst;
+
+  return {
+    opHash: params.opHash,
+    src: params.src,
+    dst: params.dst,
+    srcSpent,
+    dstReceived,
+    networkFee,
+    srcBefore: params.before.src,
+    srcAfter,
+    dstBefore: params.before.dst,
+    dstAfter,
+    quotedPay: params.quotedPay,
+    minOut: params.minOut,
+    paidAsQuoted: srcSpent === params.quotedPay,
+    receivedAtLeastMin: dstReceived >= params.minOut,
   };
 }

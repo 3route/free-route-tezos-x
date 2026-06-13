@@ -6,6 +6,7 @@ const MODES: Array<{ key: Mode; label: string }> = [
   { key: 'buyer', label: 'Buyer' },
   { key: 'seller', label: 'Seller' },
   { key: 'owned', label: 'My NFTs' },
+  { key: 'bridge', label: 'Bridge' },
 ];
 
 export function Header() {

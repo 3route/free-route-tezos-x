@@ -14,7 +14,7 @@ export {
   resolveApproval,
   xtzMutezToWei,
 } from '@sdk/index.js';
-export type { ThreeRouteToken } from '@sdk/index.js';
+export type { ThreeRouteToken, ApprovalMode } from '@sdk/index.js';
 
 import type { Quote, QuoteQuery, QuoteResponseDto, Swap, SwapResponseDto, ThreeRouteApi, ThreeRouteToken } from '@sdk/index.js';
 import { parseQuote, parseSwap } from '@sdk/index.js';
