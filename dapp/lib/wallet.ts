@@ -15,6 +15,7 @@ interface WalletState {
   wallet: BeaconWallet | null;
   connecting: boolean;
   connect: () => Promise<void>;
+  switchAccount: () => Promise<void>; // re-prompt the wallet to pick a (possibly different) account
   disconnect: () => Promise<void>;
   restore: () => Promise<void>; // rehydrate an existing Beacon session on page load
 }
@@ -80,6 +81,27 @@ export const useWallet = create<WalletState>((set, get) => {
         set({ connecting: false });
         log.err('Wallet connection failed', (e as Error).message);
         throw e;
+      }
+    },
+
+    // Re-prompt without an explicit disconnect first: the wallet shows its account picker and replaces the
+    // active account. On cancel the current account is kept (we never cleared it).
+    switchAccount: async () => {
+      if (get().connecting) return;
+      let wallet = get().wallet;
+      if (!wallet) {
+        wallet = makeWallet();
+        subscribeActiveAccount(wallet);
+      }
+      set({ connecting: true });
+      try {
+        await wallet.requestPermissions();
+        const michelsonAddress = await wallet.getPKH();
+        set(bind(wallet, michelsonAddress));
+        log.ok(`Switched account: ${michelsonAddress}`, `alias ${michelsonToAlias(michelsonAddress)}`);
+      } catch (e) {
+        set({ connecting: false });
+        log.err('Switch account failed', (e as Error).message);
       }
     },
 

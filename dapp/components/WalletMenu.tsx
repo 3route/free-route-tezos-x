@@ -11,7 +11,7 @@ const evmLink = (a: string) => `${CFG.evmExplorer}/address/${a}`;
 // Header wallet control: Connect button when disconnected; otherwise an address pill that opens a
 // dropdown with balances + a Disconnect button.
 export function WalletMenu() {
-  const { connected, michelsonAddress, aliasAddress, connect, disconnect, connecting } = useWallet();
+  const { connected, michelsonAddress, aliasAddress, connect, switchAccount, disconnect, connecting } = useWallet();
   const { payTokens } = useTokens();
   const { xtz, erc, loading, refresh } = useBalances();
   const [open, setOpen] = useState(false);
@@ -88,7 +88,17 @@ export function WalletMenu() {
           </div>
 
           <button
-            className="btn-ghost mt-3 w-full text-rose-300 hover:bg-rose-500/10"
+            className="btn-ghost mt-3 w-full"
+            disabled={connecting}
+            onClick={() => {
+              setOpen(false);
+              void switchAccount();
+            }}
+          >
+            {connecting ? 'Switching…' : 'Switch account'}
+          </button>
+          <button
+            className="btn-ghost mt-2 w-full text-rose-300 hover:bg-rose-500/10"
             onClick={() => {
               setOpen(false);
               void disconnect();
