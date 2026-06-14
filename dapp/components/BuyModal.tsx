@@ -6,9 +6,9 @@ import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
 import { useBalances, useTokens } from '@/lib/hooks';
 import { buildBuyBatch, sendWalletGroup, type BuyDetails } from '@/lib/ops';
-import { fmtSig, mutezToXtz, short } from '@/lib/format';
+import { fmtUnits, mutezToXtz, short } from '@/lib/format';
 import { nftHue, nftName } from '@/lib/names';
-import { log } from '@/lib/log';
+import { useHistory } from '@/lib/history';
 import { CFG } from '@/lib/config';
 import { fetchErc20Balance, fetchXtzBalance, type Listing } from '@/lib/tzkt';
 import { buildBuyReceipt, type BuyReceipt } from '@/lib/receipt';
@@ -27,6 +27,7 @@ const MAX_SLIPPAGE_BPS = 4900; // 49%
 export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () => void }) {
   const { tezos, michelsonAddress, aliasAddress } = useWallet();
   const refresh = useUi((s) => s.refresh);
+  const addBuy = useHistory((s) => s.addBuy);
   const { payTokens } = useTokens();
   const { erc } = useBalances();
 
@@ -102,11 +103,9 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
     setBuying(true);
     setErr(null);
     try {
-      log.pending(`Buying ask#${listing.askId} with ${token.symbol}…`);
       // snapshot real balances BEFORE (live node reads) so the receipt is measured, not estimated
       const [xtz0, usdc0] = await Promise.all([fetchXtzBalance(michelsonAddress), fetchErc20Balance(token.address, aliasAddress)]);
       const hash = await sendWalletGroup(tezos, ops);
-      log.ok(`Bought "${nftName(listing.tokenId)}" → delivered to your Michelson address`, hash);
       setFinalizing(true); // tx confirmed — now reading the on-chain receipt
       refresh(); // update listings/balances in the background
       // build the exact on-chain receipt (best-effort — never block the success on indexer lag)
@@ -121,18 +120,13 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
           expectedChange: BigInt(details.changeMutez),
           before: { xtz: xtz0, usdc: usdc0 },
         });
-        log.info(
-          `Receipt: −${fmtSig(r.usdcSpent, token.decimals, 6)} ${token.symbol} · net ${mutezToXtz(r.xtzNet < 0n ? -r.xtzNet : r.xtzNet, 6)} XTZ ${r.xtzNet < 0n ? 'out' : 'in'}`,
-          hash,
-        );
+        addBuy(r, token, listing.tokenId); // record in the activity log
         setReceipt(r); // show the receipt modal
       } catch {
         onClose(); // receipt unavailable (indexer lag) — the buy itself still succeeded
       }
     } catch (e) {
-      const msg = (e as Error).message;
-      log.err('Purchase failed', msg);
-      setErr(msg);
+      setErr((e as Error).message);
     } finally {
       setBuying(false);
       setFinalizing(false);
@@ -158,7 +152,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
             </div>
           </div>
           <div className="ml-auto text-right">
-            <div className="text-xl font-semibold">{mutezToXtz(priceMutez, 4)}</div>
+            <div className="text-xl font-semibold">{mutezToXtz(priceMutez, 6)}</div>
             <div className="text-xs text-slate-500">XTZ price</div>
           </div>
         </div>
@@ -242,7 +236,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
                   <span className="text-slate-400">
                     You pay <span className="text-[10px] uppercase tracking-wide text-slate-600">exact</span>
                   </span>
-                  <span className="font-mono">{fmtSig(details.payAmount, token.decimals, 6)} {token.symbol}</span>
+                  <span className="font-mono">{fmtUnits(details.payAmount, token.decimals, token.decimals)} {token.symbol}</span>
                 </div>
               </div>
 
@@ -299,7 +293,7 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
 
               {!enough && (
                 <div className="text-xs text-amber-400">
-                  Alias balance ({fmtSig(bal, token.decimals, 4)} {token.symbol}) is below the required amount.{' '}
+                  Alias balance ({fmtUnits(bal, token.decimals, token.decimals)} {token.symbol}) is below the required amount.{' '}
                   <Link href="/bridge" className="font-medium underline hover:text-amber-300">
                     Get {token.symbol} on the Bridge ↗
                   </Link>
@@ -314,6 +308,8 @@ export function BuyModal({ listing, onClose }: { listing: Listing; onClose: () =
             )}
           </div>
         </div>
+
+        {err && details && <p className="mt-3 text-xs text-rose-400">{err}</p>}
 
         {/* actions */}
         <div className="mt-4 flex items-center justify-end gap-2">

@@ -4,7 +4,6 @@ import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
 import { buildMintListOps, freshTokenIds, sendChunked, type SellerItem } from '@/lib/ops';
 import { nftHue, nftName } from '@/lib/names';
-import { log } from '@/lib/log';
 import { short } from '@/lib/format';
 
 interface Row {
@@ -23,6 +22,7 @@ export function SellerPanel() {
   const [count, setCount] = useState(DEFAULT_COUNT);
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const regenerate = useCallback((n: number) => {
     const ids = freshTokenIds(n);
@@ -41,16 +41,16 @@ export function SellerPanel() {
   async function mintAndList() {
     if (!tezos || !michelsonAddress) return;
     setBusy(true);
+    setStatus(null);
     try {
       const items: SellerItem[] = rows.map((r) => ({ tokenId: r.tokenId, priceMutez: Math.round(r.priceXtz * 1e6) }));
       const ops = buildMintListOps(michelsonAddress, items);
-      log.pending(`Minting ${rows.length} NFTs and listing them on objkt…`);
-      const hashes = await sendChunked(tezos, ops, (h, i, t) => log.ok(`batch ${i}/${t} confirmed`, h));
-      log.ok(`Collection live: ${rows.length} NFTs minted & listed`, hashes.join('  '));
+      await sendChunked(tezos, ops);
+      setStatus({ ok: true, msg: `Minted & listed ${rows.length} NFTs` });
       regenerate(count);
       refresh();
     } catch (e) {
-      log.err('Mint/list failed', (e as Error).message);
+      setStatus({ ok: false, msg: (e as Error).message });
     } finally {
       setBusy(false);
     }
@@ -94,6 +94,7 @@ export function SellerPanel() {
           </button>
         </div>
         {!connected && <p className="mt-3 text-xs text-amber-400/80">Connect Temple to mint &amp; list.</p>}
+        {status && <p className={`mt-3 text-xs ${status.ok ? 'text-accent2' : 'text-rose-400'}`}>{status.msg}</p>}
         <p className="mt-3 text-xs text-slate-500">
           Mints fresh tokens into the test FA2 and lists each as an XTZ-priced ask on objkt — one click (auto-split into
           batches under the gas ceiling). Names are generated; prices are editable per item.

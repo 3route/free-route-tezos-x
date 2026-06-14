@@ -7,9 +7,8 @@ import { useBalances } from '@/lib/hooks';
 import { buildSwapBatch, sendWalletGroup, type SwapDetails } from '@/lib/ops';
 import { isXtz } from '@/lib/sdk';
 import type { ThreeRouteToken } from '@/lib/sdk';
-import { fmtSig, fmtUnits } from '@/lib/format';
-import { log } from '@/lib/log';
-import { CFG } from '@/lib/config';
+import { fmtUnits } from '@/lib/format';
+import { useHistory } from '@/lib/history';
 import { fetchErc20Balance, fetchXtzBalance } from '@/lib/tzkt';
 import { buildSwapReceipt, type SwapReceipt } from '@/lib/receipt';
 import { SwapReceiptModal } from './SwapReceiptModal';
@@ -27,6 +26,7 @@ const MAX_SLIPPAGE_BPS = 4900;
 export function BridgeModal({ src, dst, amount, onClose }: { src: ThreeRouteToken; dst: ThreeRouteToken; amount: bigint; onClose: () => void }) {
   const { tezos, michelsonAddress, aliasAddress } = useWallet();
   const refresh = useUi((s) => s.refresh);
+  const addSwap = useHistory((s) => s.addSwap);
   const { xtz, erc } = useBalances();
   const slippageBps = useUi((s) => s.slippageBps);
   const setSlippageBps = useUi((s) => s.setSlippageBps);
@@ -90,7 +90,6 @@ export function BridgeModal({ src, dst, amount, onClose }: { src: ThreeRouteToke
     setBusy(true);
     setErr(null);
     try {
-      log.pending(`Swap ${fmtSig(amount, src.decimals, 6)} ${src.symbol} → ${dst.symbol}…`);
       // snapshot real balances BEFORE (live node reads) so the receipt is measured, not estimated
       const [bxtz, bsrc, bdst] = await Promise.all([
         fetchXtzBalance(michelsonAddress),
@@ -99,18 +98,17 @@ export function BridgeModal({ src, dst, amount, onClose }: { src: ThreeRouteToke
       ]);
       const before = { xtz: bxtz, src: isXtz(src.address) ? bxtz : bsrc, dst: isXtz(dst.address) ? bxtz : bdst };
       const hash = await sendWalletGroup(tezos, ops);
-      log.ok(`Swapped ${fmtSig(amount, src.decimals, 6)} ${src.symbol} → ~${fmtSig(details.expectedOut, dst.decimals, 6)} ${dst.symbol}`, `${CFG.explorer}/${hash}`);
       setFinalizing(true);
       refresh();
       try {
-        setReceipt(await buildSwapReceipt({ opHash: hash, account: michelsonAddress, aliasAddress, src, dst, quotedPay: details.payAmount, minOut: details.minOut, before }));
+        const r = await buildSwapReceipt({ opHash: hash, account: michelsonAddress, aliasAddress, src, dst, quotedPay: details.payAmount, minOut: details.minOut, before });
+        addSwap(r); // record in the activity log
+        setReceipt(r);
       } catch {
         onClose(); // receipt unavailable (indexer lag) — the swap itself still succeeded
       }
     } catch (e) {
-      const msg = (e as Error).message;
-      log.err('Swap failed', msg);
-      setErr(msg);
+      setErr((e as Error).message);
     } finally {
       setBusy(false);
       setFinalizing(false);
@@ -130,7 +128,7 @@ export function BridgeModal({ src, dst, amount, onClose }: { src: ThreeRouteToke
               Swap {src.symbol} → {dst.symbol}
             </div>
             <div className="font-mono text-[11px] text-slate-500">
-              You pay {fmtSig(amount, src.decimals, 6)} {src.symbol}
+              You pay {fmtUnits(amount, src.decimals, src.decimals)} {src.symbol}
             </div>
           </div>
         </div>
@@ -196,7 +194,7 @@ export function BridgeModal({ src, dst, amount, onClose }: { src: ThreeRouteToke
                       Amount <span className="text-[10px] uppercase tracking-wide text-slate-600">exact</span>
                     </span>
                     <span className="font-mono">
-                      {fmtSig(details.payAmount, src.decimals, 6)} {src.symbol}
+                      {fmtUnits(details.payAmount, src.decimals, src.decimals)} {src.symbol}
                     </span>
                   </div>
                 </div>
@@ -208,11 +206,11 @@ export function BridgeModal({ src, dst, amount, onClose }: { src: ThreeRouteToke
                     <span className="text-slate-400">{dst.symbol}</span>
                     <span className="text-right font-mono">
                       <span className="block">
-                        ≈ {fmtSig(details.expectedOut, dst.decimals, 6)} {dst.symbol}{' '}
+                        ≈ {fmtUnits(details.expectedOut, dst.decimals, dst.decimals)} {dst.symbol}{' '}
                         <span className="text-[10px] uppercase tracking-wide text-slate-600">expected</span>
                       </span>
                       <span className="block text-xs text-slate-500">
-                        ≥ {fmtSig(details.minOut, dst.decimals, 6)} {dst.symbol} guaranteed
+                        ≥ {fmtUnits(details.minOut, dst.decimals, dst.decimals)} {dst.symbol} guaranteed
                       </span>
                       <span className="block text-[11px] text-slate-600">{landing}</span>
                     </span>
@@ -248,6 +246,8 @@ export function BridgeModal({ src, dst, amount, onClose }: { src: ThreeRouteToke
             )}
           </div>
         </div>
+
+        {err && details && <p className="mt-3 text-xs text-rose-400">{err}</p>}
 
         {/* actions */}
         <div className="mt-4 flex items-center justify-end gap-2">

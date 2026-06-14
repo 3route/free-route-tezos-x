@@ -5,7 +5,7 @@ import { useWallet } from '@/lib/wallet';
 import { useUi } from '@/lib/ui';
 import { XTZ, XTZ_ADDRESS, fromEvm, isXtz, threeRoute, toEvm } from '@/lib/sdk';
 import type { ThreeRouteToken } from '@/lib/sdk';
-import { fmtSig, fmtUnits, parseUnits } from '@/lib/format';
+import { fmtUnits, parseUnits } from '@/lib/format';
 import { CFG } from '@/lib/config';
 import { BridgeModal } from './BridgeModal';
 
@@ -161,7 +161,7 @@ export function BridgePanel() {
           </div>
           <div className="flex items-center gap-2">
             <div className="flex-1 truncate font-mono text-lg text-slate-300">
-              {previewing ? '…' : outPreview !== null && toTok ? `≈ ${fmtSig(outPreview, toTok.decimals, 6)}` : '0.0'}
+              {previewing ? '…' : outPreview !== null && toTok ? `≈ ${fmtUnits(outPreview, toTok.decimals, toTok.decimals)}` : '0.0'}
             </div>
             {tokenSelect(toAddr, pickTo)}
           </div>

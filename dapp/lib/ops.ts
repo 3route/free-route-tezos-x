@@ -6,7 +6,7 @@ import type { MichelsonV1Expression } from '@taquito/rpc';
 import { CFG } from './config';
 import { XTZ, buildBatchTransaction, buildSwapOperation, fromEvm, isXtz, michelsonToAlias, objkt, resolveApproval, targetForMinOut, threeRoute, toEvm } from './sdk';
 import type { ApprovalMode, ThreeRouteToken } from './sdk';
-import { fmtSig } from './format';
+import { fmtUnits } from './format';
 
 const MAX_GAS_PER_BATCH = 2_500_000; // stay safely under the per-op-group ceiling; split if exceeded
 
@@ -111,7 +111,7 @@ export async function buildBuyBatch(
   const changeMutez = Math.max(0, expectedOutMutez - ask.priceMutez);
 
   // steps mirror the ACTUAL ops (2 / 3 / 4 in the group, depending on the approval mode).
-  const approveExact = { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(srcAmount, payToken.decimals, 6)} ${payToken.symbol} to the 3route router` };
+  const approveExact = { kind: 'approve (call_evm)', detail: `approve exactly ${fmtUnits(srcAmount, payToken.decimals, payToken.decimals)} ${payToken.symbol} to the 3route router` };
   const approveSteps =
     approval === 'resetThenApprove'
       ? [{ kind: 'approve (call_evm)', detail: `reset ${payToken.symbol} allowance to 0 (safe re-approval)` }, approveExact]
@@ -177,7 +177,7 @@ export async function buildSwapBatch(
   const payAmount = fromEvm(swap.srcAmount, src.address);
 
   // steps mirror the ACTUAL ops (1 / 2 / 3, depending on the approval mode).
-  const approveExact = { kind: 'approve (call_evm)', detail: `approve exactly ${fmtSig(payAmount, src.decimals, 6)} ${src.symbol} to the 3route router` };
+  const approveExact = { kind: 'approve (call_evm)', detail: `approve exactly ${fmtUnits(payAmount, src.decimals, src.decimals)} ${src.symbol} to the 3route router` };
   const approveSteps =
     approval === 'resetThenApprove'
       ? [{ kind: 'approve (call_evm)', detail: `reset ${src.symbol} allowance to 0 (safe re-approval)` }, approveExact]

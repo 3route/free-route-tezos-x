@@ -124,7 +124,7 @@ export function BuyerPanel() {
 
               {/* card body shows the (short, stable) XTZ price; what you pay in the chosen token goes on the Buy button */}
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-lg font-semibold">{mutezToXtz(l.priceMutez, 4)}</span>
+                <span className="text-lg font-semibold">{mutezToXtz(l.priceMutez, 6)}</span>
                 <span className="text-xs text-slate-500">XTZ</span>
               </div>
 
@@ -149,7 +149,7 @@ export function BuyerPanel() {
                   <span>Buy</span>
                   {token && currency !== 'XTZ' && (
                     <span className="max-w-full truncate text-[11px] font-normal text-white/85">
-                      ≈ {inToken === null ? '…' : fmtSig(inToken, token.decimals, 3)} {token.symbol}
+                      ≈ {inToken === null ? '…' : fmtSig(inToken, token.decimals, 4)} {token.symbol}
                     </span>
                   )}
                 </button>

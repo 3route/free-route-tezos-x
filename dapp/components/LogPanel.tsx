@@ -1,54 +1,59 @@
 'use client';
-import { useLog, type LogLevel } from '@/lib/log';
-import { fmtTime } from '@/lib/format';
-import { CFG } from '@/lib/config';
-
-const DOT: Record<LogLevel, string> = {
-  info: 'bg-slate-400',
-  success: 'bg-accent2',
-  error: 'bg-rose-400',
-  pending: 'bg-amber-400',
-};
-
-const isOpHash = (s?: string) => !!s && /^o[0-9A-Za-z]{50,}$/.test(s);
+import { useState } from 'react';
+import { useHistory, type HistoryEntry } from '@/lib/history';
+import { fmtTime, fmtUnits } from '@/lib/format';
+import { nftName } from '@/lib/names';
+import { ReceiptModal } from './ReceiptModal';
+import { SwapReceiptModal } from './SwapReceiptModal';
 
 export function LogPanel() {
-  const { entries, clear } = useLog();
+  const { entries, clear } = useHistory();
+  const [sel, setSel] = useState<HistoryEntry | null>(null);
+
   return (
-    <div className="card flex h-full flex-col">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-300">Activity log</h3>
-        <button className="text-xs text-slate-500 hover:text-slate-300" onClick={clear}>
-          clear
-        </button>
-      </div>
-      <div className="flex-1 space-y-2 overflow-auto pr-1 font-mono text-xs">
-        {entries.length === 0 && <p className="text-slate-600">No activity yet.</p>}
-        {entries.map((e) => (
-          <div key={e.id} className="flex gap-2">
-            <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${DOT[e.level]}`} />
-            <div className="min-w-0">
-              <div className="text-slate-300">
-                <span className="text-slate-600">{fmtTime(e.ts)} </span>
-                {e.msg}
-              </div>
-              {e.meta &&
-                (isOpHash(e.meta) ? (
-                  <a
-                    href={`${CFG.explorer}/${e.meta}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="break-all text-accent hover:underline"
-                  >
-                    {e.meta}
-                  </a>
+    <>
+      <div className="card flex h-full flex-col">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-300">Activity log</h3>
+          {entries.length > 0 && (
+            <button className="text-xs text-slate-500 hover:text-slate-300" onClick={clear}>
+              clear
+            </button>
+          )}
+        </div>
+
+        <div className="flex-1 space-y-1.5 overflow-auto pr-1">
+          {entries.length === 0 && <p className="font-mono text-xs text-slate-600">No buys or swaps yet.</p>}
+          {entries.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => setSel(e)}
+              className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition hover:bg-white/5"
+              title="view receipt"
+            >
+              <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${e.kind === 'buy' ? 'bg-accent' : 'bg-accent2'}`} />
+              <span className="min-w-0 flex-1">
+                {e.kind === 'buy' ? (
+                  <span className="text-slate-300">
+                    Bought <span className="font-medium">{nftName(e.tokenId)}</span>{' '}
+                    <span className="text-slate-500">· −{fmtUnits(e.receipt.usdcSpent, e.token.decimals, e.token.decimals)} {e.token.symbol}</span>
+                  </span>
                 ) : (
-                  <div className="break-all text-slate-500">{e.meta}</div>
-                ))}
-            </div>
-          </div>
-        ))}
+                  <span className="text-slate-300">
+                    Swapped <span className="font-medium">{e.receipt.src.symbol} → {e.receipt.dst.symbol}</span>{' '}
+                    <span className="text-slate-500">· +{fmtUnits(e.receipt.dstReceived, e.receipt.dst.decimals, e.receipt.dst.decimals)} {e.receipt.dst.symbol}</span>
+                  </span>
+                )}
+                <span className="block font-mono text-[11px] text-slate-600">{fmtTime(e.ts)} · view receipt ↗</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+
+      {/* modals live OUTSIDE the .card — its backdrop-blur creates a containing block that would trap fixed overlays */}
+      {sel?.kind === 'buy' && <ReceiptModal receipt={sel.receipt} token={sel.token} tokenId={sel.tokenId} onClose={() => setSel(null)} />}
+      {sel?.kind === 'swap' && <SwapReceiptModal receipt={sel.receipt} onClose={() => setSel(null)} />}
+    </>
   );
 }

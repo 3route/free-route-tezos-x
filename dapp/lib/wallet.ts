@@ -5,7 +5,6 @@ import { BeaconWallet } from '@taquito/beacon-wallet';
 import { BeaconEvent } from '@airgap/beacon-dapp';
 import { CFG, NETWORK_NAME } from './config';
 import { michelsonToAlias } from './sdk';
-import { log } from './log';
 
 interface WalletState {
   connected: boolean;
@@ -61,7 +60,6 @@ export const useWallet = create<WalletState>((set, get) => {
         const account = await wallet.client.getActiveAccount();
         if (!account) return;
         set(bind(wallet, account.address));
-        log.info(`Wallet session restored: ${account.address}`);
       } catch {
         /* no persisted session — stay disconnected */
       }
@@ -76,10 +74,8 @@ export const useWallet = create<WalletState>((set, get) => {
         await wallet.requestPermissions();
         const michelsonAddress = await wallet.getPKH();
         set(bind(wallet, michelsonAddress));
-        log.ok(`Wallet connected: ${michelsonAddress}`, `alias ${michelsonToAlias(michelsonAddress)}`);
       } catch (e) {
         set({ connecting: false });
-        log.err('Wallet connection failed', (e as Error).message);
         throw e;
       }
     },
@@ -98,10 +94,8 @@ export const useWallet = create<WalletState>((set, get) => {
         await wallet.requestPermissions();
         const michelsonAddress = await wallet.getPKH();
         set(bind(wallet, michelsonAddress));
-        log.ok(`Switched account: ${michelsonAddress}`, `alias ${michelsonToAlias(michelsonAddress)}`);
-      } catch (e) {
+      } catch {
         set({ connecting: false });
-        log.err('Switch account failed', (e as Error).message);
       }
     },
 
@@ -111,7 +105,6 @@ export const useWallet = create<WalletState>((set, get) => {
         if (w) await w.clearActiveAccount();
       } finally {
         set({ connected: false, michelsonAddress: null, aliasAddress: null, tezos: null, wallet: null });
-        log.info('Wallet disconnected');
       }
     },
   };
