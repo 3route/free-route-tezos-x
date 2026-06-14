@@ -2,21 +2,19 @@
 //   1. mint a fresh test NFT on TEST_FA2 (to the seller),
 //   2. list it as an ask on the objkt v4 marketplace (priced in XTZ),
 //   3. fund the buyer's EVM alias with the pay-token by swapping a little of the buyer's XTZ via the router.
-// Then prints the ready `npm run example` command (with ASK_ID / TOKEN / PRICE_XTZ / PAY).
-// Run: THREE_ROUTE_API=http://127.0.0.1:3000 [PAY=USDC PRICE_XTZ=0.004 FUND_XTZ=0.1] npx tsx scripts/setup.ts
-import { readFileSync } from 'node:fs';
+// Then prints the ready `npm run example` command (with ASK_ID / PRICE_XTZ / PAY).
+// Config comes from .env; [PAY / PRICE_XTZ / FUND_XTZ] are optional per-run overrides.
+// Run:  [PAY=USDC PRICE_XTZ=0.004 FUND_XTZ=0.1] npx tsx scripts/setup.ts
 import { ethers } from 'ethers';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import type { MichelsonV1Expression } from '@taquito/rpc';
-import { ThreeRouteTezosX, XTZ, michelsonToAlias, sendGroup, targetForMinOut, tezosXPreviewnet } from '../sdk/index.js';
+import { ThreeRouteTezosX, XTZ, michelsonToAlias, sendGroup, targetForMinOut, tezosXPreviewnet } from '../src/index.js';
+import { need } from './env.js';
 
-const env = { ...readEnvFile('../.env'), ...readEnvFile('../.env.setup') }; // .env (shared) + setup-only extras
-const need = (k: string): string => { const v = env[k]; if (!v) throw new Error(`missing ${k} in .env / .env.setup`); return v; };
-
-const TEZ_RPC = 'https://michelson.previewnet.tezosx.nomadic-labs.com';
-const EVM_RPC = 'https://evm.previewnet.tezosx.nomadic-labs.com';
-const THREE_ROUTE_API = process.env.THREE_ROUTE_API ?? 'http://127.0.0.1:3000';
+const MICHELSON_RPC = need('MICHELSON_RPC');
+const EVM_RPC = need('EVM_RPC');
+const THREE_ROUTE_API = need('THREE_ROUTE_API');
 const OBJKT = need('OBJKT_MARKETPLACE');
 const FA2 = need('TEST_FA2');
 
@@ -37,7 +35,7 @@ const m = {
   none: { prim: 'None' } as MichelsonV1Expression,
 };
 const mk = (sk: string): TezosToolkit => {
-  const tk = new TezosToolkit(TEZ_RPC);
+  const tk = new TezosToolkit(MICHELSON_RPC);
   tk.setProvider({ signer: new InMemorySigner(sk) });
   tk.setForgerProvider(tk.getFactory(RpcForger)()); // previewnet rejects local forging
   return tk;
@@ -101,15 +99,4 @@ if (have < needed) {
   console.log(`alias already funded — skip`);
 }
 
-console.log(`\n✅ ready. Run the example:\n   THREE_ROUTE_API=${THREE_ROUTE_API} ASK_ID=${askId} TOKEN=${TOKEN} PRICE_XTZ=${PRICE_XTZ} PAY=${PAY} npm run example`);
-
-function readEnvFile(rel: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  let text: string;
-  try { text = readFileSync(new URL(rel, import.meta.url), 'utf8'); } catch { return out; } // tolerant: file may be absent
-  for (const line of text.split('\n')) {
-    const e = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (e) out[e[1] as string] = e[2] as string;
-  }
-  return out;
-}
+console.log(`\n✅ ready. Run the example:\n   ASK_ID=${askId} PRICE_XTZ=${PRICE_XTZ} PAY=${PAY} npm run example`);

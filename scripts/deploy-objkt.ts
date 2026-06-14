@@ -15,14 +15,12 @@
 import { readFileSync } from 'node:fs';
 import { MichelsonMap, RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
+import { need } from './env.js';
 
-const TEZ_RPC = 'https://michelson.previewnet.tezosx.nomadic-labs.com';
+const MICHELSON_RPC = need('MICHELSON_RPC');
+const sk = need('BUYER_MICHELSON_SK');
 
-const env = readEnvFile('../.env');
-const sk = env['BUYER_MICHELSON_SK'];
-if (!sk) throw new Error('missing BUYER_MICHELSON_SK in .env');
-
-const tk = new TezosToolkit(TEZ_RPC);
+const tk = new TezosToolkit(MICHELSON_RPC);
 tk.setProvider({ signer: new InMemorySigner(sk) });
 tk.setForgerProvider(tk.getFactory(RpcForger)()); // previewnet rejects local forging
 const admin = await tk.signer.publicKeyHash();
@@ -80,14 +78,3 @@ console.log(`   fee_sharing_registry ${registry}`);
 console.log(`   marketplace          ${marketplace}`);
 console.log(`\n   Update .env:  OBJKT_MARKETPLACE=${marketplace}`);
 console.log('   (and the dApp lib/config.ts objkt default if you point the UI at it)');
-
-function readEnvFile(rel: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  let text: string;
-  try { text = readFileSync(new URL(rel, import.meta.url), 'utf8'); } catch { return out; }
-  for (const line of text.split('\n')) {
-    const e = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (e) out[e[1] as string] = e[2] as string;
-  }
-  return out;
-}

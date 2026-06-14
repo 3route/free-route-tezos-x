@@ -1,8 +1,9 @@
-// scripts/example-buy.ts — minimal headless buy: pay an EVM ERC20 for an XTZ-priced objkt NFT, signed by a
-// secret key (InMemorySigner — no Beacon/Temple wallet). Everything is hardcoded except the secret key (env).
+// scripts/example-buy.ts — minimal headless buy: pay an EVM ERC20 for an XTZ-priced objkt NFT, signed with
+// the buyer key from .env (InMemorySigner — no Beacon/Temple wallet). Config comes from .env; ASK_ID /
+// PRICE_XTZ / PAY are the per-run knobs (the exact line scripts/setup.ts prints).
 // Demonstrates the allowance-aware approval flow: swap (price+route+calldata) -> resolveApproval reads the on-chain allowance and picks
 // the safe & minimal mode (skip / approve / reset+approve) -> build the ops. One atomic op-group ending in
-// fulfill_ask. Run:  SECRET_KEY=edsk... npx tsx scripts/example-buy.ts
+// fulfill_ask. Run:  ASK_ID=2 PRICE_XTZ=0.004 PAY=USDC npm run example
 import { InMemorySigner } from '@taquito/signer';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import {
@@ -18,33 +19,31 @@ import {
   targetForMinOut,
   toEvm,
   tezosXPreviewnet,
-} from '../sdk/index.js';
+} from '../src/index.js';
+import { env, need } from './env.js';
 
-// ── hardcoded config (edit ASK_ID / PRICE_MUTEZ to a live ask) ───────────────────────────────
-const SECRET_KEY = process.env.SECRET_KEY; // the ONLY input — buyer's Michelson secret key
-const MICHELSON_RPC = 'https://michelson.previewnet.tezosx.nomadic-labs.com';
-const EVM_RPC = 'https://evm.previewnet.tezosx.nomadic-labs.com'; // to read the ERC20 allowance
-const NETWORK = tezosXPreviewnet; // chainId + gateway + default 3route apiBaseUrl (localhost)
+// ── config from env (.env + CLI). ASK_ID / PRICE_XTZ / PAY are the per-run knobs setup.ts prints. ──
+const MICHELSON_RPC = need('MICHELSON_RPC');
+const EVM_RPC = need('EVM_RPC'); // to read the ERC20 allowance
+const NETWORK = tezosXPreviewnet; // chainId + gateway
 
 const MARKETPLACE = objkt.previewnet.marketplace; // objkt v4 for this network
-// ASK_ID / price / pay-token come from the env (the exact line scripts/setup.ts prints), with demo defaults.
-const ASK_ID = process.env.ASK_ID ?? '67';
-const PRICE_MUTEZ = process.env.PRICE_XTZ ? BigInt(Math.round(Number(process.env.PRICE_XTZ) * 1e6)) : 1_000n; // must match the ask price
-const PAY_SYMBOL = process.env.PAY ?? 'USDC'; // ERC20 to pay with (held on the buyer's alias)
+const ASK_ID = need('ASK_ID'); // required — guards against buying a stale ask
+const PRICE_MUTEZ = BigInt(Math.round(Number(need('PRICE_XTZ')) * 1e6)); // must match the ask price
+const PAY_SYMBOL = env.PAY ?? 'USDC'; // ERC20 to pay with (held on the buyer's alias)
 const SLIPPAGE_BPS = 200; // 2%
-// ─────────────────────────────────────────────────────────────────────────────────────────────
-
-if (!SECRET_KEY) throw new Error('set SECRET_KEY (the buyer Michelson secret key) in the env');
+// ──────────────────────────────────────────────────────────────────────────────────────────────
 
 const tezos = new TezosToolkit(MICHELSON_RPC);
-tezos.setProvider({ signer: new InMemorySigner(SECRET_KEY) });
+tezos.setProvider({ signer: new InMemorySigner(need('BUYER_MICHELSON_SK')) });
 tezos.setForgerProvider(tezos.getFactory(RpcForger)()); // previewnet rejects local forging
 // A hosted 3route server needs an HTTP Basic api key; the local dev server is keyless. This script runs in Node
 // (server-side), so the key goes straight on the client. Set THREE_ROUTE_API_KEY='YourApiKey', or omit for local.
-const swapper = new ThreeRouteTezosX({ 
-    network: NETWORK, 
-    apiKey: process.env.THREE_ROUTE_API_KEY 
-}); // baseUrl defaults to NETWORK.apiBaseUrl
+const swapper = new ThreeRouteTezosX({
+    network: NETWORK,
+    baseUrl: env.THREE_ROUTE_API, // override the preset's default (falls back to it when unset)
+    apiKey: env.THREE_ROUTE_API_KEY,
+});
 
 const account = await tezos.signer.publicKeyHash();
 const alias = michelsonToAlias(account); // the EVM-side identity that holds the ERC20 / runs the swap
@@ -75,4 +74,4 @@ const swapOps = buildSwapOperation(swap, { gateway: NETWORK.gateway, srcAddress:
 const group = buildBatchTransaction(swapOps, objkt.buildFulfillAsk({ marketplace: MARKETPLACE, askId: ASK_ID, amountMutez: PRICE_MUTEZ }));
 console.log(`Sending ${group.length}-op atomic group…`);
 const hash = await sendGroup(tezos, group);
-console.log(`Done: https://previewnet.tezosx.tzkt.io/${hash}`);
+console.log(`Done: ${need('TZKT_EXPLORER')}/${hash}`);

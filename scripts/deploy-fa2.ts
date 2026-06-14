@@ -2,7 +2,7 @@
 //
 // The new contract assigns token ids on-chain (next_token_id counter) and carries TZIP-12 per-token
 // metadata + TZIP-16 contract metadata, so ids never collide and explorers/wallets render it as a
-// proper NFT collection. After it deploys, put the printed KT1 into `.env.setup` as TEST_FA2.
+// proper NFT collection. After it deploys, put the printed KT1 into `.env` as TEST_FA2.
 //
 // Compile first:  ligo compile contract contracts/fa2_nft.mligo --michelson-format json -o contracts/fa2_nft.json
 // Run:            npx tsx scripts/deploy-fa2.ts
@@ -12,12 +12,10 @@ import { fileURLToPath } from 'node:url';
 import { MichelsonMap, RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import { char2Bytes } from '@taquito/utils';
+import { need } from './env.js';
 
-const TEZ_RPC = 'https://michelson.previewnet.tezosx.nomadic-labs.com';
-
-const env = { ...readEnvFile('../.env'), ...readEnvFile('../.env.setup') };
-const sk = env['SELLER_MICHELSON_SK'];
-if (!sk) throw new Error('missing SELLER_MICHELSON_SK in .env / .env.setup');
+const MICHELSON_RPC = need('MICHELSON_RPC');
+const sk = need('SELLER_MICHELSON_SK');
 
 // Recompile from source so we never deploy stale bytecode; fall back to the committed JSON if ligo is absent.
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -48,7 +46,7 @@ const storage = {
   next_token_id: 0,
 };
 
-const tk = new TezosToolkit(TEZ_RPC);
+const tk = new TezosToolkit(MICHELSON_RPC);
 tk.setProvider({ signer: new InMemorySigner(sk) });
 tk.setForgerProvider(tk.getFactory(RpcForger)()); // previewnet rejects local forging
 
@@ -62,15 +60,4 @@ await op.confirmation();
 const { address } = await op.contract();
 
 console.log(`\n✅ FA2 deployed: ${address}`);
-console.log(`   Update .env.setup:  TEST_FA2=${address}`);
-
-function readEnvFile(rel: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  let text: string;
-  try { text = readFileSync(new URL(rel, import.meta.url), 'utf8'); } catch { return out; }
-  for (const line of text.split('\n')) {
-    const e = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (e) out[e[1] as string] = e[2] as string;
-  }
-  return out;
-}
+console.log(`   Update .env:  TEST_FA2=${address}`);
