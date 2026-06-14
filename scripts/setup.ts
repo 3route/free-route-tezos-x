@@ -25,13 +25,13 @@ const PRICE_XTZ = Number(process.env.PRICE_XTZ ?? 0.004);
 const FUND_XTZ = Number(process.env.FUND_XTZ ?? 0.1); // XTZ to swap -> pay-token when the alias is short
 const SLIPPAGE_BPS = 200; // 2%
 const PRICE_MUTEZ = Math.round(PRICE_XTZ * 1e6);
-const TOKEN = Number(process.env.TOKEN ?? Date.now()); // fresh id per run unless pinned
 
 // Micheline builders (objkt `ask` + FA2 `mint` need raw params — no adapter for these in the SDK).
 const m = {
   string: (s: string): MichelsonV1Expression => ({ string: s }),
   int: (n: number | string): MichelsonV1Expression => ({ int: String(n) }),
   pair: (...a: MichelsonV1Expression[]): MichelsonV1Expression => ({ prim: 'Pair', args: a }),
+  left: (x: MichelsonV1Expression): MichelsonV1Expression => ({ prim: 'Left', args: [x] }),
   right: (x: MichelsonV1Expression): MichelsonV1Expression => ({ prim: 'Right', args: [x] }),
   unit: { prim: 'Unit' } as MichelsonV1Expression,
   none: { prim: 'None' } as MichelsonV1Expression,
@@ -42,10 +42,6 @@ const mk = (sk: string): TezosToolkit => {
   tk.setForgerProvider(tk.getFactory(RpcForger)()); // previewnet rejects local forging
   return tk;
 };
-const owner = async (id: number): Promise<string> => {
-  const keys = (await fetch(`https://api.previewnet.tezosx.tzkt.io/v1/bigmaps/442/keys?key=${id}`).then((r) => r.json()).catch(() => [])) as Array<{ value?: string }>;
-  return keys[0]?.value ?? '(none)';
-};
 
 const buyer = mk(need('BUYER_MICHELSON_SK'));
 const seller = mk(need('SELLER_MICHELSON_SK'));
@@ -55,13 +51,16 @@ const aliasAddress = michelsonToAlias(buyerMichelsonAddress);
 const swapper = new ThreeRouteTezosX({ network: tezosXPreviewnet, baseUrl: THREE_ROUTE_API });
 console.log(`buyer ${buyerMichelsonAddress} (alias ${aliasAddress}) · seller ${sellerMichelsonAddress}`);
 
-// 1) MINT a fresh token to the seller (FA2 `mint(owner, token_id)`), unless it already exists.
-if ((await owner(TOKEN)) === '(none)') {
-  console.log(`mint token ${TOKEN} -> seller`);
-  await (await seller.contract.transfer({ to: FA2, amount: 0, parameter: { entrypoint: 'mint', value: m.pair(m.string(sellerMichelsonAddress), m.int(TOKEN)) }, gasLimit: 200_000, storageLimit: 350, fee: 50_000 })).confirmation();
-} else {
-  console.log(`token ${TOKEN} already exists — skip mint`);
-}
+// 1) MINT a fresh token to the seller. The FA2 assigns the id itself (next_token_id counter), so
+//    we read it just before minting — no client-side id, no collisions. mint takes only the owner.
+const fa2 = await seller.contract.at(FA2);
+const TOKEN = ((await fa2.storage()) as { next_token_id: { toNumber(): number } }).next_token_id.toNumber();
+console.log(`mint token ${TOKEN} -> seller`);
+await (await seller.contract.transfer({ to: FA2, amount: 0, parameter: { entrypoint: 'mint', value: m.string(sellerMichelsonAddress) }, gasLimit: 200_000, storageLimit: 500, fee: 50_000 })).confirmation();
+
+// objkt pulls the NFT from the seller on fulfill, so the marketplace must be an FA2 operator for this token.
+console.log(`approve objkt as operator for token ${TOKEN}`);
+await (await seller.contract.transfer({ to: FA2, amount: 0, parameter: { entrypoint: 'update_operators', value: [m.left(m.pair(m.string(sellerMichelsonAddress), m.string(OBJKT), m.int(TOKEN)))] as unknown as MichelsonV1Expression }, gasLimit: 200_000, storageLimit: 350, fee: 50_000 })).confirmation();
 
 // 2) LIST the ask on objkt v4 (price in XTZ). ask id = current next_ask_id.
 const marketplace = await seller.contract.at(OBJKT);

@@ -27,9 +27,10 @@ const EVM_RPC = 'https://evm.previewnet.tezosx.nomadic-labs.com'; // to read the
 const NETWORK = tezosXPreviewnet; // chainId + gateway + default 3route apiBaseUrl (localhost)
 
 const MARKETPLACE = objkt.previewnet.marketplace; // objkt v4 for this network
-const ASK_ID = '67';
-const PRICE_MUTEZ = 1_000n; // 0.001 XTZ — must match the ask price
-const PAY_SYMBOL = 'USDC'; // ERC20 to pay with (held on the buyer's alias)
+// ASK_ID / price / pay-token come from the env (the exact line scripts/setup.ts prints), with demo defaults.
+const ASK_ID = process.env.ASK_ID ?? '67';
+const PRICE_MUTEZ = process.env.PRICE_XTZ ? BigInt(Math.round(Number(process.env.PRICE_XTZ) * 1e6)) : 1_000n; // must match the ask price
+const PAY_SYMBOL = process.env.PAY ?? 'USDC'; // ERC20 to pay with (held on the buyer's alias)
 const SLIPPAGE_BPS = 200; // 2%
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 

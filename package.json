@@ -6,12 +6,12 @@
   "scripts": {
     "check": "tsc --noEmit",
     "setup": "tsx scripts/setup.ts",
-    "reset": "tsx scripts/reset.ts",
     "example": "tsx scripts/example-buy.ts"
   },
   "dependencies": {
     "@taquito/signer": "^21.0.5",
     "@taquito/taquito": "^21.0.5",
+    "@taquito/utils": "^21.0.5",
     "ethers": "^6.16.0"
   },
   "devDependencies": {

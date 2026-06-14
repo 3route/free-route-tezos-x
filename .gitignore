@@ -6,3 +6,4 @@ out/
 cache/
 dist/
 .playwright-mcp/
+.ligo/
