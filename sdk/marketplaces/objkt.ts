@@ -1,43 +1,38 @@
-// marketplaces/objkt.ts — objkt v4 marketplace adapter. Hand-encodes the `fulfill_ask` Michelson parameter
-// so the op is built fully offline (no TezosToolkit, no contract fetch) — symmetric with prepareSwap. The
-// caller drops the returned op into the same atomic OperationGroup as the swap.
-// fulfill_ask param schema (captured from the live contract):
-//   pair %ask_id nat (pair %amount nat (pair %proxy_for (option address) (pair %condition_extra (option bytes) (map %referrers address nat))))
+// objkt v4 marketplace adapter. Hand-encodes the `fulfill_ask` Michelson parameter fully offline (no
+// TezosToolkit / contract fetch); the caller drops the returned op into the same atomic group as the swap.
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
 import type { Hex, MichelsonAddress } from '../address.js';
 
-// Per-network objkt v4 addresses. Kept here (NOT in the swap network presets) so the swap SDK stays
-// marketplace-agnostic and objkt can version independently. Parallel to networks.ts — match by network name.
+// Per-network objkt v4 addresses — kept out of the swap presets so the swap SDK stays marketplace-agnostic.
 export interface ObjktNetwork {
   name: string;
-  marketplace: MichelsonAddress; // objkt v4 marketplace contract
+  marketplace: MichelsonAddress;
 }
 
-export const previewnet: ObjktNetwork = {
-  name: 'Tezos X Previewnet',
-  marketplace: 'KT1DzhZkEN8UZ6NkhGMDbgHh2W5zLqHDq4G7', // re-originated objkt v4
-};
+export const previewnet: ObjktNetwork = { name: 'Tezos X Previewnet', marketplace: 'KT1DzhZkEN8UZ6NkhGMDbgHh2W5zLqHDq4G7' };
 
-// TODO(mainnet): objkt v4 on Tezos X mainnet isn't deployed yet — placeholder is the L1 mainnet objkt v4.
-export const mainnet: ObjktNetwork = {
-  name: 'Tezos X Mainnet',
-  marketplace: 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X', // TODO: real Tezos X mainnet deploy
-};
+// TODO(mainnet): placeholder is the L1 mainnet objkt v4 until the Tezos X deploy exists.
+export const mainnet: ObjktNetwork = { name: 'Tezos X Mainnet', marketplace: 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X' };
 
 export interface FulfillAskParams {
-  marketplace: MichelsonAddress; // objkt contract (KT1…)
+  marketplace: MichelsonAddress;
   askId: string | number;
-  amountMutez: bigint; // XTZ to pay = the ask price (sent as the op value)
-  editions?: bigint | number; // %amount — token editions to buy (default 1)
+  amountMutez: bigint; // XTZ to pay (the ask price) — sent as the op value
+  editions?: bigint | number; // token editions to buy (default 1)
   proxyFor?: MichelsonAddress | null; // buy on behalf of another address
-  conditionExtra?: Hex | null; // %condition_extra bytes
-  referrers?: ReadonlyArray<{ address: MichelsonAddress; share: bigint | number }>; // address -> nat
+  conditionExtra?: Hex | null;
+  referrers?: ReadonlyArray<{ address: MichelsonAddress; share: bigint | number }>; // address → nat share
 }
 
 const some = (inner: object) => ({ prim: 'Some' as const, args: [inner] });
 const none = { prim: 'None' as const };
 
+/**
+ * Build an objkt v4 `fulfill_ask` operation (buy a listed ask), fully offline. The XTZ price is the op value.
+ * Param schema: `pair %ask_id nat (pair %amount nat (pair %proxy_for (option address)
+ * (pair %condition_extra (option bytes) (map %referrers address nat))))`.
+ */
 export const buildFulfillAsk = (p: FulfillAskParams): ParamsWithKind => {
   const proxyFor = p.proxyFor ? some({ string: p.proxyFor }) : none;
   const conditionExtra = p.conditionExtra ? some({ bytes: p.conditionExtra.replace(/^0x/, '') }) : none;
