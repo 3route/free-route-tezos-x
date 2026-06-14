@@ -10,7 +10,7 @@ export interface ObjktNetwork {
   marketplace: MichelsonAddress;
 }
 
-export const previewnet: ObjktNetwork = { name: 'Tezos X Previewnet', marketplace: 'KT1DzhZkEN8UZ6NkhGMDbgHh2W5zLqHDq4G7' };
+export const previewnet: ObjktNetwork = { name: 'Tezos X Previewnet', marketplace: 'KT1AyJ5P4qRJZuHqXiR9QkKRuCy49yNyLVzo' };
 
 // TODO(mainnet): placeholder is the L1 mainnet objkt v4 until the Tezos X deploy exists.
 export const mainnet: ObjktNetwork = { name: 'Tezos X Mainnet', marketplace: 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X' };
