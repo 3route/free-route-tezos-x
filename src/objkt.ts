@@ -1,8 +1,6 @@
-// objkt v4 marketplace adapter. Hand-encodes the `fulfill_ask` Michelson parameter fully offline (no
-// TezosToolkit / contract fetch); the caller drops the returned op into the same atomic group as the swap.
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
-import type { Hex, MichelsonAddress } from '../address.js';
+import type { Hex, MichelsonAddress } from './address.js';
 
 // Per-network objkt v4 addresses — kept out of the swap presets so the swap SDK stays marketplace-agnostic.
 export interface ObjktNetwork {

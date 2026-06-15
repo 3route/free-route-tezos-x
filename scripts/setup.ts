@@ -9,8 +9,9 @@ import { ethers } from 'ethers';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import type { MichelsonV1Expression } from '@taquito/rpc';
-import { ThreeRouteTezosX, XTZ, michelsonToAlias, sendGroup, targetForMinOut, tezosXPreviewnet } from '../src/index.js';
+import { ThreeRouteTezosX, XTZ, michelsonToAlias, targetForMinOut, tezosXPreviewnet } from '../src/index.js';
 import { need } from './env.js';
+import { sendGroup } from './send.js';
 
 const MICHELSON_RPC = need('MICHELSON_RPC');
 const EVM_RPC = need('EVM_RPC');

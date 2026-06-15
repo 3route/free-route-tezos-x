@@ -1,6 +1,3 @@
-// Typed client for the 3route aggregator (1inch-v6.1 API shape) on Tezos X. Two direction-agnostic read
-// endpoints (ERC20/XTZ → ERC20/XTZ, exact-in or -out): getQuote (pricing only) and getSwap (pricing + router
-// calldata + guaranteed min out). Native XTZ is just an address (XTZ_ADDRESS, see swap.ts).
 import type { EvmAddress, Hex } from './address.js';
 
 export interface ThreeRouteToken {
@@ -49,12 +46,10 @@ export interface Swap {
 }
 
 // DTO ↔ model codecs. Bidirectional so a proxy can parse the upstream DTO then re-serialize for its own JSON hop.
-/** Parse a wire {@link QuoteResponseDto} into a {@link Quote} (bigint amounts). */
 export const parseQuote = (d: QuoteResponseDto): Quote => ({
   srcAmount: BigInt(d.srcAmount),
   dstAmount: BigInt(d.dstAmount),
 });
-/** Serialize a {@link Quote} back to its wire DTO (decimal strings). */
 export const serializeQuote = (q: Quote): QuoteResponseDto => ({
   srcAmount: q.srcAmount.toString(),
   dstAmount: q.dstAmount.toString(),
@@ -75,14 +70,12 @@ const serializeTx = (t: SwapTx): SwapTxDto => ({
   gas: t.gas.toString(),
   gasPrice: t.gasPrice.toString(),
 });
-/** Parse a wire {@link SwapResponseDto} into a {@link Swap} (bigint amounts; calldata/addresses unchanged). */
 export const parseSwap = (d: SwapResponseDto): Swap => ({
   srcAmount: BigInt(d.srcAmount),
   dstAmount: BigInt(d.dstAmount),
   dstAmountMin: BigInt(d.dstAmountMin),
   tx: parseTx(d.tx),
 });
-/** Serialize a {@link Swap} back to its wire DTO (decimal strings). */
 export const serializeSwap = (s: Swap): SwapResponseDto => ({
   srcAmount: s.srcAmount.toString(),
   dstAmount: s.dstAmount.toString(),
@@ -128,7 +121,6 @@ export interface ThreeRouteApi {
 export class ThreeRouteClient implements ThreeRouteApi {
   constructor(private readonly opts: ThreeRouteClientOptions) {}
 
-  /** The token registry. */
   async getTokens(): Promise<ThreeRouteToken[]> {
     const { tokens } = await this.request<{ tokens: Record<string, ThreeRouteToken> }>('tokens');
     return Object.values(tokens);

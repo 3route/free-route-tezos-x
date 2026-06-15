@@ -1,6 +1,3 @@
-// Tezos X network presets: the chain constants the SDK and the 3route server agree on (chainId + the
-// Michelson→EVM gateway) plus an optional default 3route endpoint. Transport (apiKey/baseUrl) is passed to
-// ThreeRouteTezosX; marketplace addresses live in marketplaces/objkt.ts.
 import type { MichelsonAddress } from './address.js';
 
 export interface TezosXNetwork {

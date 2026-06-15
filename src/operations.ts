@@ -1,6 +1,3 @@
-// Tezos operation builders for the Michelson→EVM gateway. Every EVM action (3route swap, ERC20 approve) is a
-// `call_evm` transaction: the gateway runs dest.sig(abiargs) with the alias as msg.sender. Gas/storage/fee are
-// PINNED — previewnet's auto-fee undershoots the call_evm floor.
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
 import { AbiCoder } from 'ethers';
@@ -31,6 +28,7 @@ export const buildCallEvm = (
     entrypoint: 'call_evm',
     value: { prim: 'Pair', args: [{ string: dest }, { string: sig }, { bytes: abiargs.replace(/^0x/, '') }, { prim: 'None' }] },
   },
+  // pinned — previewnet's auto-fee undershoots the cross-runtime call_evm floor
   gasLimit: 500_000,
   storageLimit: 2_000,
   fee: 150_000,

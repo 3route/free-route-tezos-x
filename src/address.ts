@@ -1,6 +1,3 @@
-// The two address spaces of a Tezos X account. A Michelson account (tz1…/KT1…) has a derived EVM *alias* —
-// the EVM-side identity that holds ERC20s and is msg.sender under call_evm. It is derived from the address
-// STRING, not the public key, so it differs from a wallet's key-derived EVM address.
 import { getAddress, keccak256, toUtf8Bytes } from 'ethers';
 
 export type MichelsonAddress = string; // tz1/tz2/tz3/tz4/KT1

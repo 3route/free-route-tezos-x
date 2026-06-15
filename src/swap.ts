@@ -1,32 +1,14 @@
-// High-level swap facade. `prepareSwap` turns a request (ERC20/XTZ → ERC20/XTZ, exact-in or -out) into
-// ready-to-sign Tezos ops + a human-readable SwapDetails. It is THIN: it neither sizes exact-out targets
-// (see targetForMinOut — consumer policy) nor sends. Its only logic is the unit boundary (XTZ is mutez to the
-// consumer, wei to the EVM API) and choosing approve-vs-native-value by the input token.
 import type { ParamsWithKind } from '@taquito/taquito';
 import { michelsonToAlias } from './address.js';
 import type { EvmAddress, Hex, MichelsonAddress } from './address.js';
-import { xtzMutezToWei, xtzWeiToMutez } from './units.js';
+import { xtzWeiToMutez } from './units.js';
+import { isXtz, toEvm, fromEvm } from './xtz.js';
 import { ThreeRouteClient } from './threeroute.js';
 import type { Swap, ThreeRouteToken } from './threeroute.js';
 import { SWAP_SIG, buildCallEvm, buildErc20Approve } from './operations.js';
 import type { ApprovalMode } from './approval.js';
 import { tezosXMainnet } from './networks.js';
 import type { TezosXNetwork } from './networks.js';
-
-/** Native-XTZ marker address — the single source of truth used to recognise XTZ everywhere. */
-export const XTZ_ADDRESS: EvmAddress = '0x0000000000000000000000000000000000000000';
-// decimals = 6 is the Michelson/mutez view the consumer works in; the EVM side bridges to 18-dec wei internally,
-// so the registry's 18 is irrelevant here.
-export const XTZ: ThreeRouteToken = { address: XTZ_ADDRESS, symbol: 'XTZ', name: 'Tez', decimals: 6 };
-
-/** True if `address` is native XTZ. */
-export const isXtz = (address: EvmAddress): boolean => address.toLowerCase() === XTZ_ADDRESS;
-
-// Unit boundary — XTZ is mutez consumer-side, wei API-side; ERC20 is identical on both.
-/** Convert a consumer-side amount to the EVM API's units (mutez→wei for XTZ; identity for ERC20). */
-export const toEvm = (amount: bigint, address: EvmAddress): bigint => (isXtz(address) ? xtzMutezToWei(amount) : amount);
-/** Convert an EVM-API amount back to consumer-side units (wei→mutez for XTZ; identity for ERC20). */
-export const fromEvm = (amount: bigint, address: EvmAddress): bigint => (isXtz(address) ? xtzWeiToMutez(amount) : amount);
 
 /**
  * Size an exact-out target so the server's floor (target × (1−slip)) still covers `minOut`. A consumer helper —

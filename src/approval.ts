@@ -1,5 +1,3 @@
-// ERC20 allowance handling for swaps: a pure decision (selectApproval) + the one IO read (readAllowance) +
-// a convenience that composes them (resolveApproval).
 import { AbiCoder } from 'ethers';
 import type { EvmAddress } from './address.js';
 

@@ -15,12 +15,12 @@ import {
   michelsonToAlias,
   objkt,
   resolveApproval,
-  sendGroup,
   targetForMinOut,
   toEvm,
   tezosXPreviewnet,
 } from '../src/index.js';
 import { env, need } from './env.js';
+import { sendGroup } from './send.js';
 
 // ── config from env (.env + CLI). ASK_ID / PRICE_XTZ / PAY are the per-run knobs setup.ts prints. ──
 const MICHELSON_RPC = need('MICHELSON_RPC');
