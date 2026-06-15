@@ -1,4 +1,4 @@
-import type { EvmAddress, Hex } from './address.js';
+import type { EvmAddress, Hex } from './primitives.js';
 
 export interface ThreeRouteToken {
   readonly address: EvmAddress;

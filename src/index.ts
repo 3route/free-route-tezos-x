@@ -1,3 +1,4 @@
+export * from './primitives.js';
 export * from './units.js';
 export * from './address.js';
 export * from './xtz.js';

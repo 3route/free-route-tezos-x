@@ -1,5 +1,5 @@
 import { AbiCoder } from 'ethers';
-import type { EvmAddress } from './address.js';
+import type { EvmAddress } from './primitives.js';
 
 /**
  * How to handle the ERC20 allowance before a swap pulls the input:

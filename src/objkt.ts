@@ -1,6 +1,6 @@
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
-import type { Hex, MichelsonAddress } from './address.js';
+import type { Hex, MichelsonAddress } from './primitives.js';
 
 // Per-network objkt v4 addresses — kept out of the swap presets so the swap SDK stays marketplace-agnostic.
 export interface ObjktNetwork {

@@ -1,7 +1,7 @@
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
 import { AbiCoder } from 'ethers';
-import type { EvmAddress, Hex } from './address.js';
+import type { EvmAddress, Hex } from './primitives.js';
 
 /** 3route UniversalRouter swap signature (selector 0x2dbbf153); call_evm takes the sig + calldata-minus-selector. */
 export const SWAP_SIG =

@@ -12,7 +12,7 @@ import {
   buildBatchTransaction,
   buildSwapOperation,
   fromEvm,
-  michelsonToAlias,
+  michelsonToEvmAlias,
   objkt,
   resolveApproval,
   targetForMinOut,
@@ -46,7 +46,7 @@ const swapper = new ThreeRouteTezosX({
 });
 
 const account = await tezos.signer.publicKeyHash();
-const alias = michelsonToAlias(account); // the EVM-side identity that holds the ERC20 / runs the swap
+const alias = michelsonToEvmAlias(account); // the EVM-side identity that holds the ERC20 / runs the swap
 const payToken = (await swapper.getTokens()).find((t) => t.symbol === PAY_SYMBOL);
 if (!payToken) throw new Error(`pay token ${PAY_SYMBOL} not in the 3route registry`);
 

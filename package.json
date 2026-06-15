@@ -10,6 +10,7 @@
     "example": "tsx scripts/example-buy.ts"
   },
   "dependencies": {
+    "@noble/hashes": "^1.8.0",
     "@taquito/signer": "^21.0.5",
     "@taquito/taquito": "^21.0.5",
     "@taquito/utils": "^21.0.5",

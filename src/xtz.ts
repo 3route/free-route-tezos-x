@@ -1,4 +1,4 @@
-import type { EvmAddress } from './address.js';
+import type { EvmAddress } from './primitives.js';
 import type { ThreeRouteToken } from './threeroute.js';
 import { xtzMutezToWei, xtzWeiToMutez } from './units.js';
 

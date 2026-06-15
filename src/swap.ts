@@ -1,6 +1,6 @@
 import type { ParamsWithKind } from '@taquito/taquito';
-import { michelsonToAlias } from './address.js';
-import type { EvmAddress, Hex, MichelsonAddress } from './address.js';
+import { michelsonToEvmAlias } from './address.js';
+import type { EvmAddress, Hex, MichelsonAddress } from './primitives.js';
 import { xtzWeiToMutez } from './units.js';
 import { isXtz, toEvm, fromEvm } from './xtz.js';
 import { ThreeRouteClient } from './threeroute.js';
@@ -86,7 +86,7 @@ export class ThreeRouteTezosX {
   /** Quote via 3route and build the signable ops + a {@link SwapDetails} summary. Does not send. */
   async prepareSwap(p: PrepareSwapParams): Promise<{ ops: ParamsWithKind[]; details: SwapDetails }> {
     const { account, src, dst, amount, exactOut = false, slippageBps, approval } = p;
-    const alias = michelsonToAlias(account);
+    const alias = michelsonToEvmAlias(account);
 
     const exactSide = exactOut ? dst : src; // amount is denominated in the exact side
     const swap = await this.client.getSwap({

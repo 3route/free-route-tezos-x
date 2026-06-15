@@ -1,4 +1,4 @@
-import type { MichelsonAddress } from './address.js';
+import type { MichelsonAddress } from './primitives.js';
 
 export interface TezosXNetwork {
   name: string;

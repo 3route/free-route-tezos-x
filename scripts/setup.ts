@@ -9,7 +9,7 @@ import { ethers } from 'ethers';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import type { MichelsonV1Expression } from '@taquito/rpc';
-import { ThreeRouteTezosX, XTZ, michelsonToAlias, targetForMinOut, tezosXPreviewnet } from '../src/index.js';
+import { ThreeRouteTezosX, XTZ, michelsonToEvmAlias, targetForMinOut, tezosXPreviewnet } from '../src/index.js';
 import { need } from './env.js';
 import { sendGroup } from './send.js';
 
@@ -46,7 +46,7 @@ const buyer = mk(need('BUYER_MICHELSON_SK'));
 const seller = mk(need('SELLER_MICHELSON_SK'));
 const buyerMichelsonAddress = await buyer.signer.publicKeyHash();
 const sellerMichelsonAddress = need('SELLER_MICHELSON');
-const aliasAddress = michelsonToAlias(buyerMichelsonAddress);
+const aliasAddress = michelsonToEvmAlias(buyerMichelsonAddress);
 const swapper = new ThreeRouteTezosX({ network: tezosXPreviewnet, baseUrl: THREE_ROUTE_API });
 console.log(`buyer ${buyerMichelsonAddress} (alias ${aliasAddress}) · seller ${sellerMichelsonAddress}`);
 
