@@ -41,7 +41,7 @@ tezos.setForgerProvider(tezos.getFactory(RpcForger)()); // previewnet rejects lo
 // (server-side), so the key goes straight on the client. Set THREE_ROUTE_API_KEY='YourApiKey', or omit for local.
 const swapper = new ThreeRouteTezosX({
     network: NETWORK,
-    baseUrl: env.THREE_ROUTE_API, // override the preset's default (falls back to it when unset)
+    baseUrl: need('THREE_ROUTE_API'),
     apiKey: env.THREE_ROUTE_API_KEY,
 });
 

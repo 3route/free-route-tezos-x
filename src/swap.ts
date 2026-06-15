@@ -61,8 +61,8 @@ export function buildSwapOperation(swap: Swap, opts: BuildSwapOperationOptions):
 }
 
 export interface ThreeRouteTezosXOptions {
+  baseUrl: string; // 3route API location
   network?: TezosXNetwork; // chain constants (chainId + gateway); default tezosXMainnet
-  baseUrl?: string; // 3route API location; defaults to network.apiBaseUrl (override for proxy/hosted)
   apiKey?: string; // HTTP Basic credential (encoded — see ThreeRouteClientOptions.apiKey); omit for a keyless server
   fetch?: FetchLike; // default globalThis.fetch (inject for older Node, a custom agent, or tests)
 }
@@ -72,11 +72,9 @@ export class ThreeRouteTezosX {
   readonly client: ThreeRouteClient;
   readonly gateway: string;
 
-  constructor(opts: ThreeRouteTezosXOptions = {}) {
+  constructor(opts: ThreeRouteTezosXOptions) {
     const network = opts.network ?? tezosXMainnet;
-    const baseUrl = opts.baseUrl ?? network.apiBaseUrl;
-    if (baseUrl === undefined) throw new Error(`${network.name} has no apiBaseUrl — pass baseUrl explicitly`);
-    this.client = new ThreeRouteClient({ baseUrl, chainId: network.chainId, apiKey: opts.apiKey, fetch: opts.fetch });
+    this.client = new ThreeRouteClient({ baseUrl: opts.baseUrl, chainId: network.chainId, apiKey: opts.apiKey, fetch: opts.fetch });
     this.gateway = network.gateway;
   }
 
