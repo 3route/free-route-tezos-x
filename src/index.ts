@@ -1,4 +1,5 @@
 export * from './primitives.js';
+export type { FetchLike } from './http.js'; // injectable-fetch type used in client/options (requestJson stays internal)
 export * from './units.js';
 export * from './address.js';
 export * from './xtz.js';

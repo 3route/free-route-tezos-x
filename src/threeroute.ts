@@ -1,4 +1,5 @@
 import type { EvmAddress, Hex } from './primitives.js';
+import { requestJson, type FetchLike } from './http.js';
 
 export interface ThreeRouteToken {
   readonly address: EvmAddress;
@@ -104,6 +105,8 @@ export interface ThreeRouteClientOptions {
   /** HTTP Basic credential — the ENCODED token (base64("user:pass")), sent after "Basic ". Server-side only;
    *  never set on a browser client. Omit for a keyless server. */
   apiKey?: string;
+  timeoutMs?: number; // request abort timeout (default 10s)
+  fetch?: FetchLike; // default globalThis.fetch
 }
 
 /** Build the 3route auth header. Kept in one place so the client and any proxy can't drift on the scheme. */
@@ -146,10 +149,11 @@ export class ThreeRouteClient implements ThreeRouteApi {
     return p.toString();
   }
 
-  private async request<T>(path: string): Promise<T> {
-    const headers = { 'Content-Type': 'application/json', ...authHeaders(this.opts.apiKey) };
-    const res = await fetch(`${this.opts.baseUrl}/api/v6.1/${this.opts.chainId}/${path}`, { method: 'GET', headers });
-    if (!res.ok) throw new Error(`3route ${path.split('?')[0]} -> HTTP ${res.status}`);
-    return res.json() as Promise<T>;
+  private request<T>(path: string): Promise<T> {
+    return requestJson<T>(`${this.opts.baseUrl}/api/v6.1/${this.opts.chainId}/${path}`, {
+      headers: { 'Content-Type': 'application/json', ...authHeaders(this.opts.apiKey) },
+      timeoutMs: this.opts.timeoutMs,
+      fetch: this.opts.fetch,
+    });
   }
 }
