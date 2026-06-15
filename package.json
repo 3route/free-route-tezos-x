@@ -5,6 +5,7 @@
   "description": "Prepare 3route swaps (ERC20/XTZ -> ERC20/XTZ) on Tezos X from the Michelson side as ready-to-sign Tezos ops; native-XTZ output auto-forwards to the Michelson address. Compose marketplace ops (objkt) into one atomic group.",
   "scripts": {
     "check": "tsc --noEmit",
+    "test": "tsx --test src/tests/*.test.ts",
     "setup": "tsx scripts/setup.ts",
     "example": "tsx scripts/example-buy.ts"
   },
