@@ -24,7 +24,7 @@ const fulfillAsk = new ParameterSchema({
   ],
 });
 
-/** objkt v4 `fulfill_ask` op (buy a listed ask), fully offline; the XTZ price is the op value. */
+/** objkt v4 `fulfill_ask` op (buy a listed ask), the amountMutez is the op value. */
 export const buildFulfillAsk = (p: FulfillAskParams): ParamsWithKind => {
   return {
     kind: OpKind.TRANSACTION,
@@ -41,8 +41,5 @@ export const buildFulfillAsk = (p: FulfillAskParams): ParamsWithKind => {
         referrers: p.referrers ?? {},
       }),
     },
-    gasLimit: 700_000,
-    storageLimit: 2_000,
-    fee: 150_000,
   };
 };
