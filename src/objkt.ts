@@ -6,8 +6,8 @@ import type { Hex, MichelsonAddress, Nat } from './primitives.js';
 export interface FulfillAskParams {
   marketplace: MichelsonAddress;
   askId: Nat;
-  amountMutez: bigint | number;
-  editions: Nat;
+  amountMutez: bigint | number; // total XTZ to send = ask unit price × editions (the op value)
+  editions: Nat; // copies to buy; maps to the contract's overloaded %amount
   recipient?: MichelsonAddress | null;
   conditionExtra?: Hex | null; 
   referrers?: Record<MichelsonAddress, Nat>;
