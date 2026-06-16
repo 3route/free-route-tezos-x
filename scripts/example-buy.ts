@@ -27,7 +27,7 @@ const MICHELSON_RPC = need('MICHELSON_RPC');
 const EVM_RPC = need('EVM_RPC'); // to read the ERC20 allowance
 const NETWORK = tezosXPreviewnet; // chainId + gateway
 
-const MARKETPLACE = objkt.previewnet.marketplace; // objkt v4 for this network
+const MARKETPLACE = need('OBJKT_MARKETPLACE'); // objkt v4 marketplace
 const ASK_ID = need('ASK_ID'); // required — guards against buying a stale ask
 const PRICE_MUTEZ = BigInt(Math.round(Number(need('PRICE_XTZ')) * 1e6)); // must match the ask price
 const PAY_SYMBOL = env.PAY ?? 'USDC'; // ERC20 to pay with (held on the buyer's alias)
@@ -71,7 +71,7 @@ console.log(`need ${srcAmount} ${PAY_SYMBOL} → approval='${approval}'`);
 
 // 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
 const swapOps = buildSwapOperation(swap, { gateway: NETWORK.gateway, srcAddress: payToken.address, approval });
-const group = buildBatchTransaction(swapOps, objkt.buildFulfillAsk({ marketplace: MARKETPLACE, askId: ASK_ID, amountMutez: PRICE_MUTEZ }));
+const group = buildBatchTransaction(swapOps, objkt.buildFulfillAsk({ marketplace: MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: PRICE_MUTEZ }));
 console.log(`Sending ${group.length}-op atomic group…`);
 const hash = await sendGroup(tezos, group);
 console.log(`Done: ${need('TZKT_EXPLORER')}/${hash}`);
