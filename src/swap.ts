@@ -6,10 +6,14 @@ import { isXtz, toEvm, fromEvm } from './xtz.js';
 import { ThreeRouteClient } from './threeroute.js';
 import type { Swap, ThreeRouteToken } from './threeroute.js';
 import type { FetchLike } from './http.js';
-import { SWAP_SIG, buildCallEvm, buildErc20Approve } from './operations.js';
+import { buildCallEvm, buildErc20Approve } from './operations.js';
 import type { ApprovalMode } from './approval.js';
 import { tezosXMainnet } from './networks.js';
 import type { TezosXNetwork } from './networks.js';
+
+// 3route UniversalRouter swap signature (selector 0x2dbbf153); call_evm takes the sig + calldata-minus-selector.
+const SWAP_SIG =
+  'swap(uint256,uint256,address,uint256,uint256,(address[],uint256),(address,uint256)[],(address,uint256,uint256))';
 
 /**
  * Size an exact-out target so the server's floor (target × (1−slip)) still covers `minOut`. A consumer helper —

@@ -1,20 +1,29 @@
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
+import { ParameterSchema } from '@taquito/michelson-encoder';
 import { AbiCoder } from 'ethers';
-import type { EvmAddress, Hex } from './primitives.js';
+import type { EvmAddress, Hex, MichelsonAddress } from './primitives.js';
 
-/** 3route UniversalRouter swap signature (selector 0x2dbbf153); call_evm takes the sig + calldata-minus-selector. */
-export const SWAP_SIG =
-  'swap(uint256,uint256,address,uint256,uint256,(address[],uint256),(address,uint256)[],(address,uint256,uint256))';
 const SIG_APPROVE = 'approve(address,uint256)';
 const abi = AbiCoder.defaultAbiCoder();
 
+const callEvm = new ParameterSchema({
+  prim: 'pair',
+  args: [
+    { prim: 'string' },
+    { prim: 'string' },
+    { prim: 'bytes' },
+    { prim: 'option', args: [{ prim: 'contract', args: [{ prim: 'bytes' }] }] },
+  ],
+});
+
 /**
- * A `call_evm` op running `dest.sig(abiargs)` via the gateway (alias = msg.sender). `valueMutez` > 0 forwards
- * that XTZ as the EVM msg.value — used for native-XTZ-input swaps.
+ * A `call_evm` op running `dest.sig(abiargs)` via the gateway (alias = msg.sender).
+ * `valueMutez` > 0 forwards that XTZ as the EVM call's msg.value — passed in mutez (1e6);
+ * the gateway expands it to wei (×1e12) on the EVM side.
  */
 export const buildCallEvm = (
-  gateway: string,
+  gateway: MichelsonAddress,
   dest: EvmAddress,
   sig: string,
   abiargs: Hex,
@@ -26,7 +35,7 @@ export const buildCallEvm = (
   mutez: true,
   parameter: {
     entrypoint: 'call_evm',
-    value: { prim: 'Pair', args: [{ string: dest }, { string: sig }, { bytes: abiargs.replace(/^0x/, '') }, { prim: 'None' }] },
+    value: callEvm.Encode(dest, sig, abiargs, null),
   },
   // pinned — previewnet's auto-fee undershoots the cross-runtime call_evm floor
   gasLimit: 500_000,
@@ -34,9 +43,11 @@ export const buildCallEvm = (
   fee: 150_000,
 });
 
-/** ERC20 `approve(spender, amount)` via call_evm — lets the 3route router pull `amount` of `token` from the alias. */
-export const buildErc20Approve = (gateway: string, token: EvmAddress, spender: EvmAddress, amount: bigint): ParamsWithKind =>
+/** ERC20 `approve(spender, amount)` via call_evm — lets `spender` pull up to `amount` of `token` from the alias. */
+export const buildErc20Approve = (gateway: MichelsonAddress, token: EvmAddress, spender: EvmAddress, amount: bigint): ParamsWithKind =>
   buildCallEvm(gateway, token, SIG_APPROVE, abi.encode(['address', 'uint256'], [spender, amount]) as Hex);
 
-/** Flatten ops/op-groups into one ordered atomic batch, e.g. `buildBatchTransaction(swapOps, fulfillOp)`. */
-export const buildBatchTransaction = (...operations: Array<ParamsWithKind | ParamsWithKind[]>): ParamsWithKind[] => operations.flat();
+/** Concatenate ops/op-groups into one ordered list to sign as a single batch (atomic when sent as one group),
+ *  e.g. `buildBatchTransaction(swapOps, fulfillOp)`. */
+export const buildBatchTransaction = (...operations: Array<ParamsWithKind | ParamsWithKind[]>): ParamsWithKind[] => 
+  operations.flat();
