@@ -11,7 +11,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { MichelsonMap, RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
-import { char2Bytes } from '@taquito/utils';
+import { stringToBytes as char2Bytes } from '@taquito/utils';
 import { need } from './env.js';
 
 const MICHELSON_RPC = need('MICHELSON_RPC');
