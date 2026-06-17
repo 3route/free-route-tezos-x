@@ -3,7 +3,7 @@ import type { ParamsWithKind } from '@taquito/taquito';
 import { ParameterSchema } from '@taquito/michelson-encoder';
 import type { Hex, MichelsonAddress, Nat } from './primitives.js';
 
-export interface FulfillAskParams {
+export interface FulfillAskOptions {
   marketplace: MichelsonAddress;
   askId: Nat;
   amountMutez: bigint | number; // total XTZ to send = ask unit price × editions (the op value)
@@ -25,7 +25,7 @@ const fulfillAsk = new ParameterSchema({
 });
 
 /** objkt v4 `fulfill_ask` op (buy a listed ask), the amountMutez is the op value. */
-export const buildFulfillAsk = (p: FulfillAskParams): ParamsWithKind => {
+export const buildFulfillAsk = (p: FulfillAskOptions): ParamsWithKind => {
   return {
     kind: OpKind.TRANSACTION,
     to: p.marketplace,

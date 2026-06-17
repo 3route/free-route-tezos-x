@@ -6,7 +6,9 @@ import { isXtz, toEvm, fromEvm } from './xtz.js';
 import { ThreeRouteClient } from './threeroute.js';
 import type { Swap, ThreeRouteToken } from './threeroute.js';
 import type { FetchLike } from './http.js';
-import { buildCallEvm, buildErc20Approve } from './operations.js';
+import { buildCallEvm, buildErc20Approve } from './operations/index.js';
+import { callEvmGas } from './call-evm-limits.js';
+import type { CallEvmLimits } from './call-evm-limits.js';
 import type { ApprovalMode } from './approval.js';
 import { tezosXMainnet } from './networks.js';
 import type { TezosXNetwork } from './networks.js';
@@ -15,22 +17,15 @@ import type { TezosXNetwork } from './networks.js';
 const SWAP_SIG =
   'swap(uint256,uint256,address,uint256,uint256,(address[],uint256),(address,uint256)[],(address,uint256,uint256))';
 
-// call_evm estimation undershoots the cross-runtime gas, so we size the Tezos gas from the EVM gas estimate the
-// server returns. Measured across routes: min ≈ 9200 + tx.gas/27.5 (linear, R²≈1); this is ~2.5× that, clamped.
-const SWAP_GAS_CAP = 1_500_000;
-const swapGasLimit = (evmGas: bigint): number => {
-  return evmGas > 0n 
-    ? Math.min(SWAP_GAS_CAP, 20_000 + Math.ceil(Number(evmGas) / 10)) 
-    : 500_000;
-};
-
 /**
  * Size an exact-out target so the server's floor (target × (1−slip)) still covers `minOut`. A consumer helper —
  * NOT used inside {@link ThreeRouteTezosX.prepareSwap}, since sizing is the consumer's policy (e.g. "the swap
  * floor must cover the NFT price").
  */
-export const targetForMinOut = (minOut: bigint, slippageBps: number): bigint =>
-  (minOut * 10000n + BigInt(9999 - slippageBps)) / BigInt(10000 - slippageBps); // ceil(minOut / (1 - slip))
+export const targetForMinOut = (minOut: bigint, slippageBps: number): bigint => {
+  const denom = BigInt(10_000 - slippageBps); // (1 - slip), in bps
+  return (minOut * 10_000n + denom - 1n) / denom; // ceil(minOut / (1 - slip))
+};
 
 export interface SwapDetails {
   src: { token: ThreeRouteToken; amount: bigint }; // amount paid (strict input when exact-in)
@@ -56,6 +51,7 @@ export interface BuildSwapOperationOptions {
   gateway: MichelsonAddress; // Michelson→EVM gateway (call_evm)
   srcAddress: EvmAddress; // input token — decides native-value (XTZ) vs approve (ERC20)
   approval?: ApprovalMode; // default 'resetThenApprove'
+  limits?: CallEvmLimits; // override the swap op's limits
 }
 
 /**
@@ -64,15 +60,19 @@ export interface BuildSwapOperationOptions {
  */
 export function buildSwapOperation(swap: Swap, opts: BuildSwapOperationOptions): ParamsWithKind[] {
   const native = isXtz(opts.srcAddress);
-  const swapOp = buildCallEvm(opts.gateway, swap.tx.to, SWAP_SIG, swap.tx.data.slice(10) as Hex, {
+  const swapOp = buildCallEvm({
+    gateway: opts.gateway,
+    dest: swap.tx.to,
+    sig: SWAP_SIG,
+    abiargs: swap.tx.data.slice(10) as Hex,
     valueMutez: native ? xtzWeiToMutez(swap.tx.value) : 0n,
-    gasLimit: swapGasLimit(swap.tx.gas),
+    limits: opts.limits ?? callEvmGas.fromEvmEstimate(swap.tx.gas),
   });
   const approval = opts.approval ?? 'resetThenApprove';
   if (native || approval === 'none') return [swapOp]; // native XTZ needs no approve; 'none' = caller manages it
-  const approve = buildErc20Approve(opts.gateway, opts.srcAddress, swap.tx.to, swap.srcAmount);
+  const approve = buildErc20Approve({ gateway: opts.gateway, token: opts.srcAddress, spender: swap.tx.to, amount: swap.srcAmount });
   return approval === 'resetThenApprove'
-    ? [buildErc20Approve(opts.gateway, opts.srcAddress, swap.tx.to, 0n), approve, swapOp]
+    ? [buildErc20Approve({ gateway: opts.gateway, token: opts.srcAddress, spender: swap.tx.to, amount: 0n }), approve, swapOp]
     : [approve, swapOp];
 }
 
