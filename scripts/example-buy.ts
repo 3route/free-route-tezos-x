@@ -70,7 +70,7 @@ console.log(`buyer ${account} · pay ≤ ${srcAmount} ${PAY_SYMBOL} · receive �
 console.log(`need ${srcAmount} ${PAY_SYMBOL} → approval='${approval}'`);
 
 // 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
-const swapOps = buildSwapOperation(swap, { gateway: NETWORK.gateway, srcAddress: payToken.address, approval });
+const swapOps = buildSwapOperation({ swap, gateway: NETWORK.gateway, srcAddress: payToken.address, approval });
 const group = buildBatchTransaction(swapOps, objkt.buildFulfillAsk({ marketplace: MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: PRICE_MUTEZ }));
 console.log(`Sending ${group.length}-op atomic group…`);
 const hash = await sendGroup(tezos, group);

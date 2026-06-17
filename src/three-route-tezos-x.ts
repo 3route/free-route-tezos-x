@@ -1,26 +1,20 @@
 import type { ParamsWithKind } from '@taquito/taquito';
 import { michelsonToEvmAlias } from './address.js';
-import type { EvmAddress, Hex, MichelsonAddress } from './primitives.js';
-import { xtzWeiToMutez } from './units.js';
+import type { EvmAddress, MichelsonAddress } from './primitives.js';
 import { isXtz, toEvm, fromEvm } from './xtz.js';
 import { ThreeRouteClient } from './threeroute.js';
-import type { Swap, ThreeRouteToken } from './threeroute.js';
+import type { ThreeRouteToken } from './threeroute.js';
 import type { FetchLike } from './http.js';
-import { buildCallEvm, buildErc20Approve } from './operations/index.js';
-import { callEvmGas } from './call-evm-limits.js';
-import type { CallEvmLimits } from './call-evm-limits.js';
+import { buildSwapOperation } from './operations/index.js';
 import type { ApprovalMode } from './approval.js';
 import { tezosXMainnet } from './networks.js';
 import type { TezosXNetwork } from './networks.js';
 
-// 3route UniversalRouter swap signature (selector 0x2dbbf153); call_evm takes the sig + calldata-minus-selector.
-const SWAP_SIG =
-  'swap(uint256,uint256,address,uint256,uint256,(address[],uint256),(address,uint256)[],(address,uint256,uint256))';
-
 /**
- * Size an exact-out target so the server's floor (target × (1−slip)) still covers `minOut`. A consumer helper —
- * NOT used inside {@link ThreeRouteTezosX.prepareSwap}, since sizing is the consumer's policy (e.g. "the swap
- * floor must cover the NFT price").
+ * Exact-out amount to request so the swap still clears a hard minimum after slippage.
+ * The on-chain floor is target × (1−slip), so to keep floor ≥ `minOut` we request ceil(minOut / (1−slip)).
+ * E.g. need 4000 mutez at 2% slip → request 4082 (floor ≈ 4000.4 ≥ 4000).
+ * Use when the output must cover a fixed cost (e.g. an NFT price).
  */
 export const targetForMinOut = (minOut: bigint, slippageBps: number): bigint => {
   const denom = BigInt(10_000 - slippageBps); // (1 - slip), in bps
@@ -47,35 +41,6 @@ export interface PrepareSwapParams {
   approval?: ApprovalMode; // ERC20 allowance handling; default 'resetThenApprove'
 }
 
-export interface BuildSwapOperationOptions {
-  gateway: MichelsonAddress; // Michelson→EVM gateway (call_evm)
-  srcAddress: EvmAddress; // input token — decides native-value (XTZ) vs approve (ERC20)
-  approval?: ApprovalMode; // default 'resetThenApprove'
-  limits?: CallEvmLimits; // override the swap op's limits
-}
-
-/**
- * Turn a 3route /swap response into ready-to-sign Tezos ops, no network. ERC20 input → approve(s) + swap per
- * {@link ApprovalMode}; native-XTZ input → a single swap op carrying the XTZ as msg.value.
- */
-export function buildSwapOperation(swap: Swap, opts: BuildSwapOperationOptions): ParamsWithKind[] {
-  const native = isXtz(opts.srcAddress);
-  const swapOp = buildCallEvm({
-    gateway: opts.gateway,
-    dest: swap.tx.to,
-    sig: SWAP_SIG,
-    abiargs: swap.tx.data.slice(10) as Hex,
-    valueMutez: native ? xtzWeiToMutez(swap.tx.value) : 0n,
-    limits: opts.limits ?? callEvmGas.fromEvmEstimate(swap.tx.gas),
-  });
-  const approval = opts.approval ?? 'resetThenApprove';
-  if (native || approval === 'none') return [swapOp]; // native XTZ needs no approve; 'none' = caller manages it
-  const approve = buildErc20Approve({ gateway: opts.gateway, token: opts.srcAddress, spender: swap.tx.to, amount: swap.srcAmount });
-  return approval === 'resetThenApprove'
-    ? [buildErc20Approve({ gateway: opts.gateway, token: opts.srcAddress, spender: swap.tx.to, amount: 0n }), approve, swapOp]
-    : [approve, swapOp];
-}
-
 export interface ThreeRouteTezosXOptions {
   baseUrl: string; // 3route API location
   network?: TezosXNetwork; // chain constants (chainId + gateway); default tezosXMainnet
@@ -83,14 +48,18 @@ export interface ThreeRouteTezosXOptions {
   fetch?: FetchLike; // default globalThis.fetch (inject for older Node, a custom agent, or tests)
 }
 
-/** Tezos X entry point: holds a configured {@link ThreeRouteClient} + the gateway, and prepares swaps end to end. */
 export class ThreeRouteTezosX {
   readonly client: ThreeRouteClient;
   readonly gateway: string;
 
   constructor(opts: ThreeRouteTezosXOptions) {
     const network = opts.network ?? tezosXMainnet;
-    this.client = new ThreeRouteClient({ baseUrl: opts.baseUrl, chainId: network.chainId, apiKey: opts.apiKey, fetch: opts.fetch });
+    this.client = new ThreeRouteClient({ 
+      baseUrl: opts.baseUrl, 
+      chainId: network.chainId, 
+      apiKey: opts.apiKey, 
+      fetch: opts.fetch 
+    });
     this.gateway = network.gateway;
   }
 
@@ -115,7 +84,7 @@ export class ThreeRouteTezosX {
       slippagePercent: slippageBps / 100,
     });
 
-    const ops = buildSwapOperation(swap, { gateway: this.gateway, srcAddress: src.address, approval });
+    const ops = buildSwapOperation({ swap, gateway: this.gateway, srcAddress: src.address, approval });
 
     return {
       ops,

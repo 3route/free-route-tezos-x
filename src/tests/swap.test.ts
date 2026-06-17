@@ -1,47 +1,76 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSwapOperation, buildErc20Approve, XTZ } from '../index.js';
+import { AbiCoder } from 'ethers';
+import { OpKind } from '@taquito/taquito';
+import type { ParamsWithKind } from '@taquito/taquito';
 import type { Swap } from '../threeroute.js';
+import { buildSwapOperation } from '../operations/swap.js';
+import { callEvmGas } from '../call-evm-limits.js';
+import { XTZ } from '../xtz.js';
+
+type Tx = Extract<ParamsWithKind, { kind: OpKind.TRANSACTION }>; // the transaction variant buildSwapOperation emits
 
 const GATEWAY = 'KT18oDJJKXMKhfE1bSuAPGp92pYcwVDiqsPw';
 const ROUTER = '0x25896fd23d41c1d9F8779afc0D8AA3f52ca743Dc';
 const USDC = '0x39fD36e60A839DE4cB5DaE0E1009c0aa612Bfba1';
+const erc20Opts = { gateway: GATEWAY, srcAddress: USDC };
+const abi = AbiCoder.defaultAbiCoder();
 
-// minimal Swap with a controllable tx.gas; data has a 4-byte selector so .slice(10) yields valid bytes
-const swapWith = (evmGas: bigint, value = 0n): Swap => ({
-  srcAmount: 100n,
+// minimal Swap; data has a 4-byte selector so .slice(10) yields valid bytes
+const swapWith = (evmGas: bigint, srcAmount = 100n, value = 0n): Swap => ({
+  srcAmount,
   dstAmount: 4000n,
   dstAmountMin: 3900n,
   tx: { from: ROUTER, to: ROUTER, data: '0xdeadbeefcafe', value, gas: evmGas, gasPrice: 1n },
 });
 
-const opOf = (op: any) => ({ gasLimit: op.gasLimit, storageLimit: op.storageLimit, fee: op.fee });
+// call_evm value is Pair(dest, sig, calldata-bytes, None) (right-comb); Micheline is a deep union, so walk it loosely
+const mich = (op: Tx): any => op.parameter!.value;
+const sigOf = (op: Tx): string => mich(op).args[1].args[0].string;
+const isApprove = (op: Tx) => sigOf(op) === 'approve(address,uint256)';
+const isSwap = (op: Tx) => sigOf(op).startsWith('swap(');
+const approveAmount = (op: Tx): bigint => abi.decode(['address', 'uint256'], '0x' + mich(op).args[1].args[1].args[0].bytes)[1] as bigint;
+const limitsOf = (op: Tx) => ({ gasLimit: op.gasLimit, storageLimit: op.storageLimit, fee: op.fee });
 
-test('swap op gas is derived from tx.gas (20000 + ceil(gas/10)) with a gas-scaled fee', () => {
-  const [swapOp] = buildSwapOperation(swapWith(604_000n), { gateway: GATEWAY, srcAddress: USDC, approval: 'none' });
-  assert.deepEqual(opOf(swapOp), { gasLimit: 80_400, storageLimit: 350, fee: 1000 + Math.ceil(80_400 / 8) });
+test("approval 'none' -> [swap] only; an ERC20 input forwards no XTZ value", () => {
+  // non-zero tx.value must be ignored for an ERC20 input (value is only for native XTZ)
+  const ops = buildSwapOperation({ swap: swapWith(604_000n, 100n, 5_000_000_000_000_000_000n), ...erc20Opts, approval: 'none' });
+  assert.equal(ops.length, 1);
+  const [swap] = ops as [Tx];
+  assert.ok(isSwap(swap));
+  assert.equal(swap.amount, 0);
 });
 
-test('swap gas adapts to route size (more EVM gas -> larger limit)', () => {
-  const [small] = buildSwapOperation(swapWith(304_000n), { gateway: GATEWAY, srcAddress: USDC, approval: 'none' });
-  const [big] = buildSwapOperation(swapWith(904_000n), { gateway: GATEWAY, srcAddress: USDC, approval: 'none' });
-  assert.equal((small as any).gasLimit, 50_400);
-  assert.equal((big as any).gasLimit, 110_400);
+test("approval 'approve' -> [approve(srcAmount), swap]", () => {
+  const ops = buildSwapOperation({ swap: swapWith(604_000n, 250n), ...erc20Opts, approval: 'approve' });
+  assert.equal(ops.length, 2);
+  const [approve, swap] = ops as [Tx, Tx];
+  assert.ok(isApprove(approve) && isSwap(swap));
+  assert.equal(approveAmount(approve), 250n);
 });
 
-test('swap gas is clamped for an anomalous tx.gas', () => {
-  const [op] = buildSwapOperation(swapWith(100_000_000n), { gateway: GATEWAY, srcAddress: USDC, approval: 'none' });
-  assert.equal((op as any).gasLimit, 1_500_000); // SWAP_GAS_CAP
+test("approval 'resetThenApprove' (default) -> [reset(0), approve(srcAmount), swap]", () => {
+  const ops = buildSwapOperation({ swap: swapWith(604_000n, 250n), ...erc20Opts }); // default mode
+  assert.equal(ops.length, 3);
+  const [reset, approve, swap] = ops as [Tx, Tx, Tx];
+  assert.ok(isApprove(reset) && isApprove(approve) && isSwap(swap));
+  assert.equal(approveAmount(reset), 0n); // reset first
+  assert.equal(approveAmount(approve), 250n); // then approve the amount the swap pulls
 });
 
-test('native-XTZ swap forwards value as msg.value and still sizes gas from tx.gas', () => {
-  const [op] = buildSwapOperation(swapWith(304_000n, 5_000_000_000_000_000_000n), { gateway: GATEWAY, srcAddress: XTZ.address });
-  assert.equal((op as any).amount, 5_000_000); // 5 XTZ wei -> mutez
-  assert.equal((op as any).mutez, true);
-  assert.equal((op as any).gasLimit, 50_400);
+test('native-XTZ swap -> [swap] only (no approve) with value forwarded as mutez', () => {
+  const ops = buildSwapOperation({ swap: swapWith(304_000n, 100n, 5_000_000_000_000_000_000n), gateway: GATEWAY, srcAddress: XTZ.address });
+  assert.equal(ops.length, 1);
+  const [swap] = ops as [Tx];
+  assert.equal(swap.amount, 5_000_000); // 5 XTZ wei -> mutez
+  assert.equal(swap.mutez, true);
 });
 
-test('approve is pinned to its own small gas with a matching fee', () => {
-  const approve = buildErc20Approve(GATEWAY, USDC, ROUTER, 1000n) as any;
-  assert.deepEqual(opOf(approve), { gasLimit: 12_000, storageLimit: 350, fee: 1000 + Math.ceil(12_000 / 8) });
+test('swap op carries callEvmGas.fromEvmEstimate(tx.gas); opts.limits overrides', () => {
+  const [def] = buildSwapOperation({ swap: swapWith(604_000n), ...erc20Opts, approval: 'none' }) as [Tx];
+  assert.deepEqual(limitsOf(def), callEvmGas.fromEvmEstimate(604_000n));
+
+  const override = callEvmGas.fixed(42_000);
+  const [ovr] = buildSwapOperation({ swap: swapWith(604_000n), ...erc20Opts, approval: 'none', limits: override }) as [Tx];
+  assert.deepEqual(limitsOf(ovr), override);
 });
