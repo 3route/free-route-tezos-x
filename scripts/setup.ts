@@ -9,7 +9,7 @@ import { ethers } from 'ethers';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import type { MichelsonV1Expression } from '@taquito/rpc';
-import { ThreeRouteTezosX, XTZ, michelsonToEvmAlias, targetForMinOut, tezosXPreviewnet } from '../src/index.js';
+import { ThreeRouteTezosX, XTZ, michelsonToEvmAlias, targetForMinOut, tezosXPreviewnet, toEvm } from '../src/index.js';
 import { need } from './env.js';
 import { sendGroup } from './send.js';
 
@@ -47,7 +47,7 @@ const seller = mk(need('SELLER_MICHELSON_SK'));
 const buyerMichelsonAddress = await buyer.signer.publicKeyHash();
 const sellerMichelsonAddress = need('SELLER_MICHELSON');
 const aliasAddress = michelsonToEvmAlias(buyerMichelsonAddress);
-const swapper = new ThreeRouteTezosX({ network: tezosXPreviewnet, baseUrl: THREE_ROUTE_API });
+const threeRoute = new ThreeRouteTezosX({ network: tezosXPreviewnet, baseUrl: THREE_ROUTE_API });
 console.log(`buyer ${buyerMichelsonAddress} (alias ${aliasAddress}) · seller ${sellerMichelsonAddress}`);
 
 // 1) MINT a fresh token to the seller. The FA2 assigns the id itself (next_token_id counter), so
@@ -76,23 +76,24 @@ await (await seller.contract.transfer({ to: OBJKT, amount: 0, parameter: { entry
 console.log(`listed ask#${askId} · token ${TOKEN} @ ${PRICE_MUTEZ} mutez (${PRICE_XTZ} XTZ)`);
 
 // 3) FUND the alias with the pay-token if it's short. Needed amount = the example's exact-out buy input.
-const payToken = (await swapper.getTokens()).find((t) => t.symbol === PAY);
+const payToken = (await threeRoute.getTokens()).find((t) => t.symbol === PAY);
 if (!payToken) throw new Error(`pay-token ${PAY} not in the 3route registry`);
 const provider = new ethers.JsonRpcProvider(EVM_RPC, undefined, { batchMaxCount: 1 });
 const erc20 = new ethers.Contract(payToken.address, ['function balanceOf(address) view returns (uint256)'], provider) as unknown as { balanceOf(a: string): Promise<bigint> };
 
 // what the example buy (payToken -> XTZ, exact-out sized to cover the price) will spend
 const buyTarget = targetForMinOut(BigInt(PRICE_MUTEZ), SLIPPAGE_BPS);
-const { details: buy } = await swapper.prepareSwap({ account: buyerMichelsonAddress, src: payToken, dst: XTZ, amount: buyTarget, exactOut: true, slippageBps: SLIPPAGE_BPS });
-const needed = buy.src.amount; // pay-token units the example will spend
+const buySwap = await threeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvm(buyTarget, XTZ.address), exactOut: true, from: aliasAddress, receiver: aliasAddress, slippagePercent: SLIPPAGE_BPS / 100 });
+const needed = buySwap.srcAmount; // pay-token units the example will spend
 const have = await erc20.balanceOf(aliasAddress);
 console.log(`alias ${PAY}: have ${have} · need ${needed} for this buy`);
 
 if (have < needed) {
   const fundMutez = BigInt(Math.round(FUND_XTZ * 1e6));
   // fund = XTZ -> payToken (exact-in), output stays on the alias as ERC20
-  const { ops: fundOps, details: fund } = await swapper.prepareSwap({ account: buyerMichelsonAddress, src: XTZ, dst: payToken, amount: fundMutez, slippageBps: 300 });
-  console.log(`fund: swap ${FUND_XTZ} XTZ -> ~${fund.dst.expected} ${PAY} units (router ${fund.router})`);
+  const fundSwap = await threeRoute.getSwap({ src: XTZ.address, dst: payToken.address, amount: toEvm(fundMutez, XTZ.address), from: aliasAddress, receiver: aliasAddress, slippagePercent: 3 });
+  const fundOps = threeRoute.buildSwapOperation({ swap: fundSwap, srcAddress: XTZ.address });
+  console.log(`fund: swap ${FUND_XTZ} XTZ -> ~${fundSwap.dstAmount} ${PAY} units (router ${fundSwap.tx.to})`);
   await sendGroup(buyer, fundOps);
   await new Promise((r) => setTimeout(r, 4000));
   console.log(`alias ${PAY} now = ${await erc20.balanceOf(aliasAddress)}`);
