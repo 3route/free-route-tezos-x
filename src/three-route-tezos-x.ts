@@ -1,6 +1,6 @@
 import type { ParamsWithKind } from '@taquito/taquito';
-import { ThreeRouteClient } from './threeroute.js';
-import type { Quote, QuoteQuery, Swap, SwapQuery, ThreeRouteToken } from './threeroute.js';
+import { ThreeRouteClient } from './threeroute/index.js';
+import type { Quote, QuoteQuery, Swap, SwapQuery, ThreeRouteToken } from './threeroute/index.js';
 import type { FetchLike } from './http.js';
 import type { MichelsonAddress } from './primitives.js';
 import * as ops from './operations/index.js';
@@ -43,7 +43,7 @@ export class ThreeRouteTezosX {
   }
 
   // ── 3route reads (delegate to the client) ──
-  getTokens(): Promise<ThreeRouteToken[]> {
+  getTokens(): Promise<readonly ThreeRouteToken[]> {
     return this.client.getTokens();
   }
   getQuote(query: QuoteQuery): Promise<Quote> {

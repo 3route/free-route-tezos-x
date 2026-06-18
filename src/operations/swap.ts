@@ -4,7 +4,7 @@ import { buildErc20Approve } from './approve.js';
 import { callEvmGas } from '../call-evm-limits.js';
 import type { CallEvmLimits } from '../call-evm-limits.js';
 import { isXtz, xtzWeiToMutez } from '../units.js';
-import type { Swap } from '../threeroute.js';
+import type { Swap } from '../threeroute/models.js';
 import type { ApprovalMode } from '../approval.js';
 import type { EvmAddress, Hex, MichelsonAddress } from '../primitives.js';
 

@@ -1,5 +1,5 @@
 import type { EvmAddress } from './primitives.js';
-import type { ThreeRouteToken } from './threeroute.js';
+import type { ThreeRouteToken } from './threeroute/models.js';
 
 export const XTZ_MUTEZ_DECIMALS = 6;
 export const XTZ_WEI_DECIMALS = 18;
