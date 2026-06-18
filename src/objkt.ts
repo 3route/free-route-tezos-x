@@ -1,7 +1,7 @@
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
 import { ParameterSchema } from '@taquito/michelson-encoder';
-import type { Hex, MichelsonAddress, Nat } from './primitives.js';
+import type { Hex, MichelsonAddress, Nat, OpLimits } from './primitives.js';
 
 export interface FulfillAskOptions {
   marketplace: MichelsonAddress;
@@ -11,7 +11,7 @@ export interface FulfillAskOptions {
   recipient?: MichelsonAddress | null;
   conditionExtra?: Hex | null;
   referrers?: Record<MichelsonAddress, Nat>;
-  limits?: { gasLimit: number; storageLimit: number; fee: number }; // pin to skip estimation; omit to let Taquito estimate
+  limits?: OpLimits; // pin to skip estimation; omit to let Taquito estimate
 }
 
 const fulfillAsk = new ParameterSchema({

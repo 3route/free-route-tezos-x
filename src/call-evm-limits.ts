@@ -5,16 +5,12 @@
 // drop this module and pass no `limits`. Measured: min ≈ 9200 + evmGas/27.5 (R²≈1, ~300k EVM
 // gas/hop); formulas below keep ~2.5x headroom.
 
-export interface CallEvmLimits {
-  gasLimit: number;
-  storageLimit: number;
-  fee: number; // mutez
-}
+import type { OpLimits } from './primitives.js';
 
 const SWAP_GAS_CAP = 1_500_000; // backstop vs an anomalous estimate (~49 hops)
 
 // fee slope 0.125 > the 0.1 µtz/gas minimal, so it covers the gas + byte terms; storage ~0 for call_evm.
-const complete = (gasLimit: number, storageLimit = 350): CallEvmLimits => ({
+const complete = (gasLimit: number, storageLimit = 350): OpLimits => ({
   gasLimit,
   storageLimit,
   fee: 1000 + Math.ceil(gasLimit / 8),
@@ -22,14 +18,14 @@ const complete = (gasLimit: number, storageLimit = 350): CallEvmLimits => ({
 
 export const callEvmGas = {
   /** Size from an EVM gas estimate (e.g. 3route `swap.tx.gas`); adapts to route hops. */
-  fromEvmEstimate(evmGas: bigint): CallEvmLimits {
-    const gasLimit = evmGas > 0n 
+  fromEvmEstimate(evmGas: bigint): OpLimits {
+    const gasLimit = evmGas > 0n
       ? Math.min(SWAP_GAS_CAP, 20_000 + Math.ceil(Number(evmGas) / 10))
       : 500_000;
     return complete(gasLimit);
   },
   /** Size from a known fixed Tezos gas (e.g. an ERC20 approve). */
-  fixed(gasLimit: number): CallEvmLimits {
+  fixed(gasLimit: number): OpLimits {
     return complete(gasLimit);
   },
 };

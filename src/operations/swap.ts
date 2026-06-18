@@ -2,11 +2,10 @@ import type { ParamsWithKind } from '@taquito/taquito';
 import { buildCallEvm } from './call-evm.js';
 import { buildErc20Approve } from './approve.js';
 import { callEvmGas } from '../call-evm-limits.js';
-import type { CallEvmLimits } from '../call-evm-limits.js';
 import { isXtz, xtzWeiToMutez } from '../units.js';
 import type { Swap } from '../threeroute/models.js';
 import type { ApprovalMode } from '../approval.js';
-import type { EvmAddress, Hex, MichelsonAddress } from '../primitives.js';
+import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../primitives.js';
 
 // 3route UniversalRouter swap signature (selector 0x2dbbf153)
 const SWAP_SIG =
@@ -17,7 +16,7 @@ export interface BuildSwapOperationOptions {
   gateway: MichelsonAddress; // Michelson→EVM gateway (call_evm)
   srcAddress: EvmAddress; // input token
   approval?: ApprovalMode; // default 'resetThenApprove'
-  limits?: CallEvmLimits; // override the swap op's limits
+  limits?: OpLimits; // override the swap op's limits
 }
 
 /**

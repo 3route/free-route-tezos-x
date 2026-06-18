@@ -2,8 +2,7 @@ import type { ParamsWithKind } from '@taquito/taquito';
 import { AbiCoder } from 'ethers';
 import { buildCallEvm } from './call-evm.js';
 import { callEvmGas } from '../call-evm-limits.js';
-import type { CallEvmLimits } from '../call-evm-limits.js';
-import type { EvmAddress, Hex, MichelsonAddress } from '../primitives.js';
+import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../primitives.js';
 
 const SIG_APPROVE = 'approve(address,uint256)';
 const abi = AbiCoder.defaultAbiCoder();
@@ -14,7 +13,7 @@ export interface BuildErc20ApproveOptions {
   token: EvmAddress;
   spender: EvmAddress;
   amount: bigint;
-  limits?: CallEvmLimits;
+  limits?: OpLimits;
 }
 
 /** ERC20 `approve(spender, amount)` via call_evm — lets `spender` pull up to `amount` of `token` from the alias. */

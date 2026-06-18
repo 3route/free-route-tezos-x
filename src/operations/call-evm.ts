@@ -1,8 +1,7 @@
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
 import { ParameterSchema } from '@taquito/michelson-encoder';
-import type { CallEvmLimits } from '../call-evm-limits.js';
-import type { EvmAddress, Hex, MichelsonAddress } from '../primitives.js';
+import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../primitives.js';
 
 const callEvm = new ParameterSchema({
   prim: 'pair',
@@ -21,7 +20,7 @@ export interface BuildCallEvmOptions {
   abiargs: Hex; // ABI-encoded arguments ONLY — no selector (the gateway derives it from sig)
   valueMutez?: bigint; // msg.value in mutez (1e6); the gateway expands ×1e12 to wei
   callback?: MichelsonAddress | null; // `contract bytes` address to receive the EVM return bytes; null = none
-  limits?: CallEvmLimits; // fully sizes the op so no estimation runs; omit to let Taquito estimate
+  limits?: OpLimits; // fully sizes the op so no estimation runs; omit to let Taquito estimate
 }
 
 /**
