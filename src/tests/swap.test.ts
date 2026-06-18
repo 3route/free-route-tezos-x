@@ -6,7 +6,7 @@ import type { ParamsWithKind } from '@taquito/taquito';
 import type { Swap } from '../threeroute.js';
 import { buildSwapOperation } from '../operations/swap.js';
 import { callEvmGas } from '../call-evm-limits.js';
-import { XTZ } from '../xtz.js';
+import { XTZ } from '../units.js';
 
 type Tx = Extract<ParamsWithKind, { kind: OpKind.TRANSACTION }>; // the transaction variant buildSwapOperation emits
 
