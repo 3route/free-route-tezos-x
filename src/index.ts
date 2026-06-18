@@ -2,7 +2,7 @@ export * from './primitives.js';
 export type { FetchLike } from './http.js'; // injectable-fetch type used in client/options (requestJson stays internal)
 export * from './units.js';
 export * from './address.js';
-export * from './freeroute/index.js';
+export * from './free-route/index.js';
 export * from './call-evm-limits.js';
 export * from './slippage.js';
 export * from './operations/index.js';

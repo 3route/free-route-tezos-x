@@ -1,5 +1,5 @@
 import type { EvmAddress } from './primitives.js';
-import type { FreeRouteToken } from './freeroute/models.js';
+import type { FreeRouteToken } from './free-route/models.js';
 
 export const XTZ_MUTEZ_DECIMALS = 6;
 export const XTZ_WEI_DECIMALS = 18;

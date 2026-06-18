@@ -1,6 +1,6 @@
 import type { ParamsWithKind } from '@taquito/taquito';
-import { FreeRouteClient } from './freeroute/index.js';
-import type { Quote, QuoteQuery, Swap, SwapQuery, FreeRouteToken } from './freeroute/index.js';
+import { FreeRouteClient } from './free-route/index.js';
+import type { Quote, QuoteQuery, Swap, SwapQuery, FreeRouteToken } from './free-route/index.js';
 import type { FetchLike } from './http.js';
 import type { MichelsonAddress } from './primitives.js';
 import * as ops from './operations/index.js';
