@@ -9,8 +9,9 @@ export interface FulfillAskOptions {
   amountMutez: bigint | number; // total XTZ to send = ask unit price × editions (the op value)
   editions: Nat; // copies to buy; maps to the contract's overloaded %amount
   recipient?: MichelsonAddress | null;
-  conditionExtra?: Hex | null; 
+  conditionExtra?: Hex | null;
   referrers?: Record<MichelsonAddress, Nat>;
+  limits?: { gasLimit: number; storageLimit: number; fee: number }; // pin to skip estimation; omit to let Taquito estimate
 }
 
 const fulfillAsk = new ParameterSchema({
@@ -41,5 +42,6 @@ export const buildFulfillAsk = (p: FulfillAskOptions): ParamsWithKind => {
         referrers: p.referrers ?? {},
       }),
     },
+    ...(p.limits ?? {}),
   };
 };
