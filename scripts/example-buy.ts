@@ -55,7 +55,7 @@ const swap = await threeRoute.getSwap({
   src: payToken.address,
   dst: XTZ.address,
   amount: toEvm(target, XTZ.address), // mutez -> wei for the EVM API
-  exactOut: true,
+  isExactOut: true,
   from: alias,
   receiver: alias,
   slippagePercent: SLIPPAGE_BPS / 100,

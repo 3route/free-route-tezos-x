@@ -83,7 +83,7 @@ const erc20 = new ethers.Contract(payToken.address, ['function balanceOf(address
 
 // what the example buy (payToken -> XTZ, exact-out sized to cover the price) will spend
 const buyTarget = targetForMinOut(BigInt(PRICE_MUTEZ), SLIPPAGE_BPS);
-const buySwap = await threeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvm(buyTarget, XTZ.address), exactOut: true, from: aliasAddress, receiver: aliasAddress, slippagePercent: SLIPPAGE_BPS / 100 });
+const buySwap = await threeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvm(buyTarget, XTZ.address), isExactOut: true, from: aliasAddress, receiver: aliasAddress, slippagePercent: SLIPPAGE_BPS / 100 });
 const needed = buySwap.srcAmount; // pay-token units the example will spend
 const have = await erc20.balanceOf(aliasAddress);
 console.log(`alias ${PAY}: have ${have} · need ${needed} for this buy`);

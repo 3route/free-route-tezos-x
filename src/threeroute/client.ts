@@ -4,19 +4,19 @@ import type { Quote, Swap, ThreeRouteToken } from './models.js';
 import { parseQuote, parseSwap } from './dto.js';
 import type { QuoteResponseDto, SwapResponseDto } from './dto.js';
 
-/** Pricing query (getQuote). No from/receiver — per rust-3route QuoteRequest. */
+/** Pricing query (getQuote). No from/receiver/slippage — per rust-3route QuoteRequest. */
 export interface QuoteQuery {
   src: EvmAddress; // XTZ_ADDRESS for native XTZ
   dst: EvmAddress;
-  amount: bigint; // base units of the exact side (dst when exactOut)
-  exactOut?: boolean; // default false (exact-input)
-  slippagePercent?: number; // default 1
+  amount: bigint; // base units of the exact side (dst when isExactOut)
+  isExactOut?: boolean; // default false (exact-input)
 }
 
-/** Swap query (getSwap). Per rust-3route SwapRequest: `from` required, `receiver` optional (defaults to `from`). */
+/** Swap query (getSwap). Per rust-3route SwapRequest: `from` required, `receiver`/`slippage` optional. */
 export interface SwapQuery extends QuoteQuery {
   from: EvmAddress;
   receiver?: EvmAddress;
+  slippagePercent?: number; // default 1; shapes dstAmountMin (swap-only — quotes have no slippage)
 }
 
 export interface ThreeRouteClientOptions {
@@ -56,9 +56,9 @@ export class ThreeRouteClient implements ThreeRouteApi {
   }
 
   // Optional params sent only when set — the server owns the defaults (slippage=1, exact-input).
-  private queryString(q: QuoteQuery & { from?: EvmAddress; receiver?: EvmAddress }): string {
+  private queryString(q: QuoteQuery & { from?: EvmAddress; receiver?: EvmAddress; slippagePercent?: number }): string {
     const p = new URLSearchParams({ src: q.src, dst: q.dst, amount: q.amount.toString() });
-    if (q.exactOut !== undefined) p.set('isExactOutput', String(q.exactOut));
+    if (q.isExactOut !== undefined) p.set('isExactOutput', String(q.isExactOut));
     if (q.slippagePercent !== undefined) p.set('slippage', String(q.slippagePercent));
     if (q.from) p.set('from', q.from);
     if (q.receiver) p.set('receiver', q.receiver);
