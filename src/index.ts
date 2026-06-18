@@ -4,6 +4,7 @@ export * from './units.js';
 export * from './address.js';
 export * from './threeroute/index.js';
 export * from './call-evm-limits.js';
+export * from './slippage.js';
 export * from './operations/index.js';
 export * from './approval.js';
 export * from './networks.js';
