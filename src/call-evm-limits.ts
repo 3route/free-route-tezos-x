@@ -17,7 +17,7 @@ const complete = (gasLimit: number, storageLimit = 350): OpLimits => ({
 });
 
 export const callEvmGas = {
-  /** Size from an EVM gas estimate (e.g. 3route `swap.tx.gas`); adapts to route hops. */
+  /** Size from an EVM gas estimate (e.g. free-route `swap.tx.gas`); adapts to route hops. */
   fromEvmEstimate(evmGas: bigint): OpLimits {
     const gasLimit = evmGas > 0n
       ? Math.min(SWAP_GAS_CAP, 20_000 + Math.ceil(Number(evmGas) / 10))

@@ -1,10 +1,10 @@
 import type { EvmAddress } from '../primitives.js';
 import { requestJson, type FetchLike } from '../http.js';
-import type { Quote, Swap, ThreeRouteToken } from './models.js';
+import type { Quote, Swap, FreeRouteToken } from './models.js';
 import { parseQuote, parseSwap } from './dto.js';
 import type { QuoteResponseDto, SwapResponseDto } from './dto.js';
 
-/** Pricing query (getQuote). No from/receiver/slippage — per rust-3route QuoteRequest. */
+/** Pricing query (getQuote). No from/receiver/slippage — per rust-free-route QuoteRequest. */
 export interface QuoteQuery {
   src: EvmAddress; // XTZ_ADDRESS for native XTZ
   dst: EvmAddress;
@@ -12,14 +12,14 @@ export interface QuoteQuery {
   isExactOut?: boolean; // default false (exact-input)
 }
 
-/** Swap query (getSwap). Per rust-3route SwapRequest: `from` required, `receiver`/`slippage` optional. */
+/** Swap query (getSwap). Per rust-free-route SwapRequest: `from` required, `receiver`/`slippage` optional. */
 export interface SwapQuery extends QuoteQuery {
   from: EvmAddress;
   receiver?: EvmAddress;
   slippagePercent?: number; // default 1; shapes dstAmountMin (swap-only — quotes have no slippage)
 }
 
-export interface ThreeRouteClientOptions {
+export interface FreeRouteClientOptions {
   baseUrl: string;
   chainId: number;
   apiKey?: string;
@@ -31,17 +31,17 @@ export function authHeaders(apiKey?: string): Record<string, string> {
   return apiKey ? { Authorization: `Basic ${apiKey}` } : {};
 }
 
-export interface ThreeRouteApi {
-  getTokens(): Promise<readonly ThreeRouteToken[]>;
+export interface FreeRouteApi {
+  getTokens(): Promise<readonly FreeRouteToken[]>;
   getQuote(query: QuoteQuery): Promise<Quote>;
   getSwap(query: SwapQuery): Promise<Swap>;
 }
 
-export class ThreeRouteClient implements ThreeRouteApi {
-  constructor(private readonly opts: ThreeRouteClientOptions) {}
+export class FreeRouteClient implements FreeRouteApi {
+  constructor(private readonly opts: FreeRouteClientOptions) {}
 
-  async getTokens(): Promise<readonly ThreeRouteToken[]> {
-    const { tokens } = await this.request<{ tokens: Record<string, ThreeRouteToken> }>('tokens');
+  async getTokens(): Promise<readonly FreeRouteToken[]> {
+    const { tokens } = await this.request<{ tokens: Record<string, FreeRouteToken> }>('tokens');
     return Object.values(tokens);
   }
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { AbiCoder } from 'ethers';
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
-import type { Swap } from '../threeroute/index.js';
+import type { Swap } from '../freeroute/index.js';
 import { buildSwapOperation } from '../operations/swap.js';
 import { callEvmGas } from '../call-evm-limits.js';
 import { XTZ } from '../units.js';

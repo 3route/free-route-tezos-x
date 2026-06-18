@@ -3,16 +3,16 @@ import { buildCallEvm } from './call-evm.js';
 import { buildErc20Approve } from './approve.js';
 import { callEvmGas } from '../call-evm-limits.js';
 import { isXtz, xtzWeiToMutez } from '../units.js';
-import type { Swap } from '../threeroute/models.js';
+import type { Swap } from '../freeroute/models.js';
 import type { ApprovalMode } from '../approval.js';
 import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../primitives.js';
 
-// 3route UniversalRouter swap signature (selector 0x2dbbf153)
+// free-route UniversalRouter swap signature (selector 0x2dbbf153)
 const SWAP_SIG =
   'swap(uint256,uint256,address,uint256,uint256,(address[],uint256),(address,uint256)[],(address,uint256,uint256))';
 
 export interface BuildSwapOperationOptions {
-  swap: Swap; // a 3route /swap response
+  swap: Swap; // a free-route /swap response
   gateway: MichelsonAddress; // Michelson→EVM gateway (call_evm)
   srcAddress: EvmAddress; // input token
   approval?: ApprovalMode; // default 'resetThenApprove'
@@ -20,7 +20,7 @@ export interface BuildSwapOperationOptions {
 }
 
 /**
- * Turn a 3route /swap response into ready-to-sign Tezos ops, no network. ERC20 input → approve(s) + swap per
+ * Turn a free-route /swap response into ready-to-sign Tezos ops, no network. ERC20 input → approve(s) + swap per
  * {@link ApprovalMode}; native-XTZ input → a single swap op carrying the XTZ as msg.value.
  */
 export function buildSwapOperation(opts: BuildSwapOperationOptions): ParamsWithKind[] {

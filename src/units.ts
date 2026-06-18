@@ -1,5 +1,5 @@
 import type { EvmAddress } from './primitives.js';
-import type { ThreeRouteToken } from './threeroute/models.js';
+import type { FreeRouteToken } from './freeroute/models.js';
 
 export const XTZ_MUTEZ_DECIMALS = 6;
 export const XTZ_WEI_DECIMALS = 18;
@@ -16,7 +16,7 @@ export const XTZ_ADDRESS: EvmAddress = '0x00000000000000000000000000000000000000
 
 // decimals = 6 is the Michelson/mutez view the consumer works in; the EVM side bridges to 18-dec wei internally,
 // so the registry's 18 is irrelevant here.
-export const XTZ: ThreeRouteToken = { address: XTZ_ADDRESS, symbol: 'XTZ', name: 'Tez', decimals: 6 };
+export const XTZ: FreeRouteToken = { address: XTZ_ADDRESS, symbol: 'XTZ', name: 'Tez', decimals: 6 };
 
 export const isXtz = (address: EvmAddress): boolean => address.toLowerCase() === XTZ_ADDRESS;
 

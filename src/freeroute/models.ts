@@ -1,6 +1,6 @@
 import type { EvmAddress, Hex } from '../primitives.js';
 
-export interface ThreeRouteToken {
+export interface FreeRouteToken {
   readonly address: EvmAddress;
   readonly symbol: string;
   readonly name: string;

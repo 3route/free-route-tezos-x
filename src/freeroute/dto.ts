@@ -8,7 +8,7 @@ export interface QuoteResponseDto {
 
 export interface SwapTxDto {
   readonly from: EvmAddress;
-  readonly to: EvmAddress; // 3route router
+  readonly to: EvmAddress; // free-route router
   readonly data: Hex; // router calldata
   readonly value: string; // wei msg.value — nonzero only for native-XTZ input
   readonly gas: string;

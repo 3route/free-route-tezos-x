@@ -8,7 +8,7 @@ import { InMemorySigner } from '@taquito/signer';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import {
   XTZ,
-  ThreeRouteTezosX,
+  FreeRouteTezosX,
   buildBatchTransaction,
   fromEvm,
   michelsonToEvmAlias,
@@ -36,22 +36,22 @@ const SLIPPAGE_BPS = 200; // 2%
 const tezos = new TezosToolkit(MICHELSON_RPC);
 tezos.setProvider({ signer: new InMemorySigner(need('BUYER_MICHELSON_SK')) });
 tezos.setForgerProvider(tezos.getFactory(RpcForger)()); // previewnet rejects local forging
-// A hosted 3route server needs an HTTP Basic api key; the local dev server is keyless. This script runs in Node
-// (server-side), so the key goes straight on the client. Set THREE_ROUTE_API_KEY='YourApiKey', or omit for local.
-const threeRoute = new ThreeRouteTezosX({
+// A hosted free-route server needs an HTTP Basic api key; the local dev server is keyless. This script runs in Node
+// (server-side), so the key goes straight on the client. Set FREE_ROUTE_API_KEY='YourApiKey', or omit for local.
+const freeRoute = new FreeRouteTezosX({
     network: NETWORK,
-    baseUrl: need('THREE_ROUTE_API'),
-    apiKey: env.THREE_ROUTE_API_KEY,
+    baseUrl: need('FREE_ROUTE_API'),
+    apiKey: env.FREE_ROUTE_API_KEY,
 });
 
 const account = await tezos.signer.publicKeyHash();
 const alias = michelsonToEvmAlias(account); // the EVM-side identity that holds the ERC20 / runs the swap
-const payToken = (await threeRoute.getTokens()).find((t) => t.symbol === PAY_SYMBOL);
-if (!payToken) throw new Error(`pay token ${PAY_SYMBOL} not in the 3route registry`);
+const payToken = (await freeRoute.getTokens()).find((t) => t.symbol === PAY_SYMBOL);
+if (!payToken) throw new Error(`pay token ${PAY_SYMBOL} not in the free-route registry`);
 
 // 1. swap: exact-out payToken -> XTZ (price + route + calldata), sized so the on-chain floor covers the ask price.
 const target = targetForMinOut(PRICE_MUTEZ, SLIPPAGE_BPS);
-const swap = await threeRoute.getSwap({
+const swap = await freeRoute.getSwap({
   src: payToken.address,
   dst: XTZ.address,
   amount: toEvm(target, XTZ.address), // mutez -> wei for the EVM API
@@ -69,7 +69,7 @@ console.log(`buyer ${account} · pay ≤ ${srcAmount} ${PAY_SYMBOL} · receive �
 console.log(`need ${srcAmount} ${PAY_SYMBOL} → approval='${approval}'`);
 
 // 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
-const swapOps = threeRoute.buildSwapOperation({ swap, srcAddress: payToken.address, approval });
+const swapOps = freeRoute.buildSwapOperation({ swap, srcAddress: payToken.address, approval });
 const group = buildBatchTransaction(swapOps, objkt.buildFulfillAsk({ marketplace: MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: PRICE_MUTEZ }));
 console.log(`Sending ${group.length}-op atomic group…`);
 const hash = await sendGroup(tezos, group);

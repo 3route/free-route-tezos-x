@@ -1,6 +1,6 @@
 import type { ParamsWithKind } from '@taquito/taquito';
-import { ThreeRouteClient } from './threeroute/index.js';
-import type { Quote, QuoteQuery, Swap, SwapQuery, ThreeRouteToken } from './threeroute/index.js';
+import { FreeRouteClient } from './freeroute/index.js';
+import type { Quote, QuoteQuery, Swap, SwapQuery, FreeRouteToken } from './freeroute/index.js';
 import type { FetchLike } from './http.js';
 import type { MichelsonAddress } from './primitives.js';
 import * as ops from './operations/index.js';
@@ -8,21 +8,21 @@ import type { BuildCallEvmOptions, BuildErc20ApproveOptions, BuildSwapOperationO
 import { tezosXMainnet } from './networks.js';
 import type { TezosXNetwork } from './networks.js';
 
-export interface ThreeRouteTezosXOptions {
-  baseUrl: string; // 3route API location
-  apiKey?: string; // 3route API key
+export interface FreeRouteTezosXOptions {
+  baseUrl: string; // free-route API location
+  apiKey?: string; // free-route API key
   network?: TezosXNetwork; // Default tezosXMainnet
   fetch?: FetchLike; // default globalThis.fetch (inject for older Node, a custom agent, or tests)
 }
 
-/** Tezos X facade: the 3route client + gateway; delegates reads and builds ops with the gateway injected. */
-export class ThreeRouteTezosX {
-  readonly client: ThreeRouteClient;
+/** Tezos X facade: the free-route client + gateway; delegates reads and builds ops with the gateway injected. */
+export class FreeRouteTezosX {
+  readonly client: FreeRouteClient;
   readonly gateway: MichelsonAddress;
 
-  constructor(opts: ThreeRouteTezosXOptions) {
+  constructor(opts: FreeRouteTezosXOptions) {
     const network = opts.network ?? tezosXMainnet;
-    this.client = new ThreeRouteClient({ 
+    this.client = new FreeRouteClient({ 
       baseUrl: opts.baseUrl, 
       chainId: network.chainId, 
       apiKey: opts.apiKey, 
@@ -31,8 +31,8 @@ export class ThreeRouteTezosX {
     this.gateway = network.gateway;
   }
 
-  // ── 3route reads (delegate to the client) ──
-  getTokens(): Promise<readonly ThreeRouteToken[]> {
+  // ── free-route reads (delegate to the client) ──
+  getTokens(): Promise<readonly FreeRouteToken[]> {
     return this.client.getTokens();
   }
   getQuote(query: QuoteQuery): Promise<Quote> {
