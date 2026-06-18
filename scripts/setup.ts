@@ -83,7 +83,7 @@ const erc20 = new ethers.Contract(payToken.address, ['function balanceOf(address
 
 // what the example buy (payToken -> XTZ, exact-out sized to cover the price) will spend
 const buyTarget = targetForMinOut(BigInt(PRICE_MUTEZ), SLIPPAGE_BPS);
-const buySwap = await freeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvm(buyTarget, XTZ.address), isExactOut: true, from: aliasAddress, receiver: aliasAddress, slippagePercent: SLIPPAGE_BPS / 100 });
+const buySwap = await freeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvm(buyTarget, XTZ.address), isExactOut: true, from: aliasAddress, receiver: aliasAddress, slippageBps: SLIPPAGE_BPS });
 const needed = buySwap.srcAmount; // pay-token units the example will spend
 const have = await erc20.balanceOf(aliasAddress);
 console.log(`alias ${PAY}: have ${have} · need ${needed} for this buy`);
@@ -91,7 +91,7 @@ console.log(`alias ${PAY}: have ${have} · need ${needed} for this buy`);
 if (have < needed) {
   const fundMutez = BigInt(Math.round(FUND_XTZ * 1e6));
   // fund = XTZ -> payToken (exact-in), output stays on the alias as ERC20
-  const fundSwap = await freeRoute.getSwap({ src: XTZ.address, dst: payToken.address, amount: toEvm(fundMutez, XTZ.address), from: aliasAddress, receiver: aliasAddress, slippagePercent: 3 });
+  const fundSwap = await freeRoute.getSwap({ src: XTZ.address, dst: payToken.address, amount: toEvm(fundMutez, XTZ.address), from: aliasAddress, receiver: aliasAddress, slippageBps: 300 });
   const fundOps = freeRoute.buildSwapOperation({ swap: fundSwap, srcAddress: XTZ.address });
   console.log(`fund: swap ${FUND_XTZ} XTZ -> ~${fundSwap.dstAmount} ${PAY} units (router ${fundSwap.tx.to})`);
   await sendGroup(buyer, fundOps);

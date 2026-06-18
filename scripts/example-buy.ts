@@ -58,7 +58,7 @@ const swap = await freeRoute.getSwap({
   isExactOut: true,
   from: alias,
   receiver: alias,
-  slippagePercent: SLIPPAGE_BPS / 100,
+  slippageBps: SLIPPAGE_BPS,
 });
 const srcAmount = swap.srcAmount; // payToken the swap will pull
 const router = swap.tx.to;

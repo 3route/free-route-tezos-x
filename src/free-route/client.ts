@@ -3,6 +3,7 @@ import { requestJson, type FetchLike } from '../http.js';
 import type { Quote, Swap, FreeRouteToken } from './models.js';
 import { parseQuote, parseSwap } from './dto.js';
 import type { QuoteResponseDto, SwapResponseDto } from './dto.js';
+import { assertSlippageBps } from '../slippage.js';
 
 /** Pricing query (getQuote). No from/receiver/slippage — per rust-free-route QuoteRequest. */
 export interface QuoteQuery {
@@ -16,7 +17,8 @@ export interface QuoteQuery {
 export interface SwapQuery extends QuoteQuery {
   from: EvmAddress;
   receiver?: EvmAddress;
-  slippagePercent?: number; // default 1; shapes dstAmountMin (swap-only — quotes have no slippage)
+  // Slippage tolerance in basis points (1 bps = 0.01%; 50 = 0.5%). Integer, 0..MAX_SLIPPAGE_BPS (0%..50%).
+  slippageBps?: number;
 }
 
 export interface FreeRouteClientOptions {
@@ -52,14 +54,17 @@ export class FreeRouteClient implements FreeRouteApi {
 
   /** Pricing + router calldata + guaranteed minimum output. */
   async getSwap(query: SwapQuery): Promise<Swap> {
+    if (query.slippageBps !== undefined) assertSlippageBps(query.slippageBps);
     return parseSwap(await this.request<SwapResponseDto>(`swap?${this.queryString(query)}`));
   }
 
-  // Optional params sent only when set — the server owns the defaults (slippage=1, exact-input).
-  private queryString(q: QuoteQuery & { from?: EvmAddress; receiver?: EvmAddress; slippagePercent?: number }): string {
+  // Optional params sent only when set — the server owns the defaults (slippage=1%, exact-input).
+  private queryString(q: QuoteQuery & { from?: EvmAddress; receiver?: EvmAddress; slippageBps?: number }): string {
     const p = new URLSearchParams({ src: q.src, dst: q.dst, amount: q.amount.toString() });
     if (q.isExactOut !== undefined) p.set('isExactOutput', String(q.isExactOut));
-    if (q.slippagePercent !== undefined) p.set('slippage', String(q.slippagePercent));
+    // The server's `slippage` is a percent (f64); we expose bps. getSwap already asserted an integer bps,
+    // so bps/100 is exact and the server's `(percent*100) as u64` recovers the same bps targetForMinOut used.
+    if (q.slippageBps !== undefined) p.set('slippage', String(q.slippageBps / 100));
     if (q.from) p.set('from', q.from);
     if (q.receiver) p.set('receiver', q.receiver);
     return p.toString();

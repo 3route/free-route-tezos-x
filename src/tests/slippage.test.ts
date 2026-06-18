@@ -28,3 +28,10 @@ test('rounds up (ceil), and the floor invariant holds across sizes/rates', () =>
     assert.ok(floor(targetForMinOut(m, bps), bps) >= m);
   }
 });
+
+test('rejects out-of-range / non-integer slippageBps (server contract 0..5000)', () => {
+  for (const bad of [5001, 10_000, -1, 1.5, NaN]) {
+    assert.throws(() => targetForMinOut(4000n, bad), RangeError);
+  }
+  assert.doesNotThrow(() => targetForMinOut(4000n, 5000)); // the max (50%) is valid
+});
