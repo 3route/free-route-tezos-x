@@ -1,32 +1,18 @@
-// scripts/deploy-fa2.ts — originate the demo FA2 NFT (contracts/fa2_nft.mligo) on Tezos X previewnet.
-//
-// The new contract assigns token ids on-chain (next_token_id counter) and carries TZIP-12 per-token
-// metadata + TZIP-16 contract metadata, so ids never collide and explorers/wallets render it as a
-// proper NFT collection. After it deploys, put the printed KT1 into `.env` as TEST_FA2.
-//
-// Compile first:  ligo compile contract contracts/fa2_nft.mligo --michelson-format json -o contracts/fa2_nft.json
-// Run:            npx tsx scripts/deploy-fa2.ts
+// scripts/deploy-fa2.ts — originate the demo FA2 NFT from contracts/fa2_nft.json; print KT1 for .env TEST_FA2.
+// On-chain token-id counter + TZIP-12/16 metadata. Deploys the committed JSON as-is.
+// Edited fa2_nft.mligo? `npm run compile:fa2` + commit first. Run: `npm run deploy:fa2`.
 import { readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { MichelsonMap, RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
-import { stringToBytes as char2Bytes } from '@taquito/utils';
+import { stringToBytes } from '@taquito/utils';
 import { need } from './env.js';
 
 const MICHELSON_RPC = need('MICHELSON_RPC');
 const sk = need('SELLER_MICHELSON_SK');
 
-// Recompile from source so we never deploy stale bytecode; fall back to the committed JSON if ligo is absent.
-const repoRoot = fileURLToPath(new URL('..', import.meta.url));
-try {
-  execSync('ligo compile contract contracts/fa2_nft.mligo --michelson-format json -o contracts/fa2_nft.json', { cwd: repoRoot, stdio: 'inherit' });
-} catch {
-  console.warn('⚠️  ligo compile failed/unavailable — deploying the existing contracts/fa2_nft.json');
-}
 const code = JSON.parse(readFileSync(new URL('../contracts/fa2_nft.json', import.meta.url), 'utf8'));
 
-// TZIP-16 contract metadata, served from on-chain storage (tezos-storage:content).
+// TZIP-16 contract metadata, served from on-chain storage.
 const contractMetadata = {
   name: 'objkt demo',
   description: 'Demo NFT collection for the objkt pay-with-any-ERC20 example (Tezos X previewnet).',
@@ -34,9 +20,10 @@ const contractMetadata = {
   interfaces: ['TZIP-012', 'TZIP-016'],
   authors: ['objkt-evm-pay demo'],
 };
+// big_map (string, bytes) — Taquito takes bytes as hex strings, hence <string, string>.
 const metadata = new MichelsonMap<string, string>();
-metadata.set('', char2Bytes('tezos-storage:content'));
-metadata.set('content', char2Bytes(JSON.stringify(contractMetadata)));
+metadata.set('', stringToBytes('tezos-storage:content'));
+metadata.set('content', stringToBytes(JSON.stringify(contractMetadata)));
 
 const storage = {
   ledger: new MichelsonMap(),
@@ -53,8 +40,9 @@ tk.setForgerProvider(tk.getFactory(RpcForger)()); // previewnet rejects local fo
 const deployer = await tk.signer.publicKeyHash();
 console.log(`deploying FA2 from ${deployer} ...`);
 
-// previewnet's fee policy is stricter than taquito's auto-estimate — set fee/limits explicitly.
-const op = await tk.contract.originate({ code, storage, fee: 100_000, gasLimit: 200_000, storageLimit: 20_000 });
+// gas/storage estimate fine; only the fee needs pinning (previewnet's EVM-node policy > Taquito's estimate).
+// No try/catch: TezosOperationError carries the real cause in `.errors` (e.g. BalanceTooLow).
+const op = await tk.contract.originate({ code, storage, fee: 100_000 });
 console.log(`origination op: ${op.hash}`);
 await op.confirmation();
 const { address } = await op.contract();

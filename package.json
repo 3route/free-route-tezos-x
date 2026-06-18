@@ -7,7 +7,9 @@
     "check": "tsc --noEmit",
     "test": "tsx --test src/tests/*.test.ts",
     "setup": "tsx scripts/setup.ts",
-    "example": "tsx scripts/example-buy.ts"
+    "example": "tsx scripts/example-buy.ts",
+    "compile:fa2": "ligo compile contract contracts/fa2_nft.mligo --michelson-format json -o contracts/fa2_nft.json",
+    "deploy:fa2": "tsx scripts/deploy-fa2.ts"
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
