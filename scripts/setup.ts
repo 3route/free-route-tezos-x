@@ -17,6 +17,7 @@ const EVM_RPC = need('EVM_RPC');
 const FREE_ROUTE_API = need('FREE_ROUTE_API');
 const OBJKT_MARKETPLACE = need('OBJKT_MARKETPLACE');
 const TEST_FA2 = need('TEST_FA2');
+const TZKT_EXPLORER = need('TZKT_EXPLORER');
 
 const PAY_SYMBOL = process.env.PAY_SYMBOL ?? 'USDC';
 const PRICE_XTZ = Number(process.env.PRICE_XTZ ?? 0.004);
@@ -28,6 +29,12 @@ const makeToolkit = (sk: string): TezosToolkit => {
   tk.setProvider({ signer: new InMemorySigner(sk) });
   tk.setForgerProvider(tk.getFactory(RpcForger)()); // previewnet rejects local forging
   return tk;
+};
+
+// confirm a sent op and print its explorer link
+const sendOp = async (op: { confirmation(): Promise<unknown>; hash: string }) => {
+  await op.confirmation();
+  console.log(`  ${TZKT_EXPLORER}/${op.hash}`);
 };
 
 const buyer = makeToolkit(need('BUYER_MICHELSON_SK'));
@@ -46,18 +53,19 @@ console.log(`buyer ${buyerMichelsonAddress} (alias ${aliasAddress}) · seller ${
 const fa2 = await seller.contract.at(TEST_FA2);
 const TOKEN_ID = ((await fa2.storage()) as { next_token_id: { toNumber(): number } }).next_token_id.toNumber();
 console.log(`mint token ${TOKEN_ID} -> seller`);
-await (await fa2.methodsObject.mint!(sellerMichelsonAddress).send({ fee: 50_000 })).confirmation();
+await sendOp(await fa2.methodsObject.mint!(sellerMichelsonAddress).send({ fee: 50_000 }));
 
 // objkt pulls the NFT from the seller on fulfill, so the marketplace must be an FA2 operator for this token.
 console.log(`approve objkt as operator for token ${TOKEN_ID}`);
-await (await fa2.methodsObject.update_operators!([{ add_operator: { owner: sellerMichelsonAddress, operator: OBJKT_MARKETPLACE, token_id: TOKEN_ID } }]).send({ fee: 50_000 })).confirmation();
+await sendOp(await fa2.methodsObject.update_operators!([{ add_operator: { owner: sellerMichelsonAddress, operator: OBJKT_MARKETPLACE, token_id: TOKEN_ID } }]).send({ fee: 50_000 }));
 
 // 2) LIST the ask on objkt v4 (price in XTZ). ask id = current next_ask_id.
 const marketplace = await seller.contract.at(OBJKT_MARKETPLACE);
 const askId = ((await marketplace.storage()) as { next_ask_id: { toNumber(): number } }).next_ask_id.toNumber();
 const shares = new MichelsonMap<string, number>(); // seller takes 100% (1000 / 1000)
 shares.set(sellerMichelsonAddress, 1000);
-await (await marketplace.methodsObject.ask!({
+console.log(`list ask#${askId} · token ${TOKEN_ID} @ ${PRICE_MUTEZ} mutez (${PRICE_XTZ} XTZ)`);
+await sendOp(await marketplace.methodsObject.ask!({
   token: { address: TEST_FA2, token_id: TOKEN_ID },
   currency: { tez: UnitValue }, // price in XTZ (vs %fa12 / %fa2 currencies)
   amount: PRICE_MUTEZ, // objkt names the price "amount"
@@ -67,8 +75,7 @@ await (await marketplace.methodsObject.ask!({
   expiry_time: null,
   referral_bonus: 0,
   condition: null,
-}).send({ fee: 200_000 })).confirmation();
-console.log(`listed ask#${askId} · token ${TOKEN_ID} @ ${PRICE_MUTEZ} mutez (${PRICE_XTZ} XTZ)`);
+}).send({ fee: 200_000 }));
 
 // 3) FUND the alias with the pay-token if it's short. Needed amount = the example's exact-out buy input.
 const payToken = (await freeRoute.getTokens()).find((t) => t.symbol === PAY_SYMBOL);
@@ -101,7 +108,7 @@ if (have < needed) {
   const fundSwap = await freeRoute.getSwap({ src: XTZ.address, dst: payToken.address, amount: target - have, isExactOut: true, from: aliasAddress, receiver: aliasAddress, slippageBps: 300 });
   const fundOps = freeRoute.buildSwapOperation({ swap: fundSwap, srcAddress: XTZ.address });
   console.log(`fund: request ${fmtPay(target - have)} onto the alias (router ${fundSwap.tx.to})`);
-  await sendGroup(buyer, fundOps);
+  console.log(`  ${TZKT_EXPLORER}/${await sendGroup(buyer, fundOps)}`);
   const now = await pollBalance(needed);
   console.log(`alias now = ${fmtPay(now)}`);
   if (now < needed) throw new Error(`alias still short after funding (${fmtPay(now)} < ${fmtPay(needed)})`);
@@ -109,4 +116,4 @@ if (have < needed) {
   console.log(`alias already funded — skip`);
 }
 
-console.log(`\n✅ ready. Run the example:\n   ASK_ID=${askId} PRICE_XTZ=${PRICE_XTZ} PAY_SYMBOL=${PAY_SYMBOL} npm run example`);
+console.log(`\n✅ ready. Run the example:\n   ASK_ID=${askId} PAY_SYMBOL=${PAY_SYMBOL} npm run example`);
