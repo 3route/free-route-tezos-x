@@ -56,15 +56,19 @@
     "deploy:objkt": "tsx scripts/deploy-objkt.ts"
   },
   "dependencies": {
-    "@noble/hashes": "^1.8.0",
-    "@taquito/michelson-encoder": "~24.2.0",
-    "@taquito/signer": "~24.2.0",
-    "@taquito/taquito": "~24.2.0",
-    "@taquito/utils": "~24.2.0"
+    "@noble/hashes": "^1.8.0"
+  },
+  "peerDependencies": {
+    "@taquito/michelson-encoder": "^24.2.0",
+    "@taquito/taquito": "^24.2.0",
+    "@taquito/utils": "^24.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@taquito/rpc": "~24.2.0",
+    "@taquito/michelson-encoder": "~24.2.0",
+    "@taquito/signer": "~24.2.0",
+    "@taquito/taquito": "~24.2.0",
+    "@taquito/utils": "~24.2.0",
     "@types/node": "^22.10.0",
     "eslint": "^10.5.0",
     "tsx": "^4.19.0",
