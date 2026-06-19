@@ -20,6 +20,7 @@
   "sideEffects": false,
   "scripts": {
     "check": "tsc --noEmit",
+    "lint": "eslint .",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
     "test": "tsx --test src/tests/*.test.ts",
@@ -39,9 +40,12 @@
     "ethers": "^6.16.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@taquito/rpc": "~24.2.0",
     "@types/node": "^22.10.0",
+    "eslint": "^10.5.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.61.1"
   }
 }
