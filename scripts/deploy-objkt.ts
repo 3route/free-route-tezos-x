@@ -11,7 +11,7 @@
 // admin / treasury / gallery_factory, matching the current setup.
 //
 // After it runs, put the printed marketplace KT1 into `.env` as OBJKT_MARKETPLACE.
-// Run:  npx tsx scripts/deploy-objkt.ts
+// Run:  npm run deploy:objkt
 import { readFileSync } from 'node:fs';
 import { MichelsonMap, RpcForger, TezosToolkit } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
@@ -28,10 +28,11 @@ console.log(`deploying objkt system from ${admin} ...`);
 
 const codeOf = (name: string) => JSON.parse(readFileSync(new URL(`../contracts/objkt/${name}.json`, import.meta.url), 'utf8'));
 
-// previewnet's fee policy is stricter than taquito's auto-estimate; the marketplace is large, so give it room.
-const originate = async (name: string, storage: object, fee: number, storageLimit: number, gasLimit: number) => {
+// gas/storage estimate fine (marketplace: ~12k gas / ~30k storage, far under the 3M/60k ceilings);
+// only the fee needs pinning — previewnet's EVM-node fee policy is stricter than Taquito's fee estimate.
+const originate = async ({ name, storage, fee }: { name: string; storage: object; fee: number }) => {
   console.log(`originate ${name} ...`);
-  const op = await tk.contract.originate({ code: codeOf(name), storage, fee, storageLimit, gasLimit });
+  const op = await tk.contract.originate({ code: codeOf(name), storage, fee });
   await op.confirmation();
   const { address } = await op.contract();
   console.log(`  ${name} = ${address}`);
@@ -39,38 +40,45 @@ const originate = async (name: string, storage: object, fee: number, storageLimi
 };
 
 // 1) permission_module — admin/treasury/etc. all the deployer; no deps.
-const pm = await originate('permission_module', {
-  admin,
-  baking_reward_collector: admin,
-  delegate: admin,
-  metadata: new MichelsonMap(),
-  mods: [],
-  proposed_admin: null,
-  treasury: admin,
-}, 200_000, 10_000, 200_000);
+const pm = await originate({
+  name: 'permission_module', fee: 50_000, storage: {
+    admin,
+    baking_reward_collector: admin,
+    delegate: admin,
+    metadata: new MichelsonMap(),
+    mods: [],
+    proposed_admin: null,
+    treasury: admin,
+  }
+});
 
 // 2) fee_sharing_registry — management_fee = 0 (the whole point); references the PM.
-const registry = await originate('fee_registry', {
-  base_share_fee: 4000,
-  fee_overrides: new MichelsonMap(),
-  management_fee: 0,
-  management_fee_overrides: new MichelsonMap(),
-  metadata: new MichelsonMap(),
-  permission_module: pm,
-  referral_fee_levels: [0, 500, 1000, 1500, 2000, 2500],
-}, 200_000, 20_000, 400_000);
+const registry = await originate({
+  name: 'fee_registry', fee: 50_000, storage: {
+    base_share_fee: 4000,
+    fee_overrides: new MichelsonMap(),
+    management_fee: 0,
+    management_fee_overrides: new MichelsonMap(),
+    metadata: new MichelsonMap(),
+    permission_module: pm,
+    referral_fee_levels: [0, 500, 1000, 1500, 2000, 2500],
+  }
+});
 
 // 3) marketplace — references the PM + registry.
-const marketplace = await originate('marketplace', {
-  asks: new MichelsonMap(),
-  fee_sharing_registry: registry,
-  gallery_factory: admin,
-  metadata: new MichelsonMap(),
-  next_ask_id: 0,
-  next_offer_id: 0,
-  offers: new MichelsonMap(),
-  permission_module: pm,
-}, 2_000_000, 60_000, 2_900_000); // storage capped at the protocol max (60000); gas under the 3M ceiling
+// larger fee: the marketplace blob is big, so its byte-based fee floor is higher
+const marketplace = await originate({
+  name: 'marketplace', fee: 200_000, storage: {
+    asks: new MichelsonMap(),
+    fee_sharing_registry: registry,
+    gallery_factory: admin,
+    metadata: new MichelsonMap(),
+    next_ask_id: 0,
+    next_offer_id: 0,
+    offers: new MichelsonMap(),
+    permission_module: pm,
+  }
+});
 
 console.log(`\n✅ objkt system deployed (management_fee = 0):`);
 console.log(`   permission_module    ${pm}`);

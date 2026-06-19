@@ -8,7 +8,7 @@ import { stringToBytes } from '@taquito/utils';
 import { need } from './env.js';
 
 const MICHELSON_RPC = need('MICHELSON_RPC');
-const sk = need('SELLER_MICHELSON_SK');
+const sk = need('BUYER_MICHELSON_SK');
 
 const code = JSON.parse(readFileSync(new URL('../contracts/fa2_nft.json', import.meta.url), 'utf8'));
 
