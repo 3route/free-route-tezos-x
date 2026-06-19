@@ -65,14 +65,14 @@ Just need a swap (no marketplace)? Stop after `buildSwapOperation` and send `swa
 
 | Export | What |
 |---|---|
-| `FreeRouteTezosX` | facade: free-route client + gateway. `getTokens` / `getQuote` / `getSwap`, and `buildSwapOperation` / `buildErc20Approve` / `buildCallEvm` with the gateway injected |
-| `FreeRouteClient` | low-level free-route API client (no gateway) |
+| `FreeRouteTezosX` | **main entry point** — free-route reads (`getTokens` / `getQuote` / `getSwap`) + op-builders (`buildSwapOperation` / `buildErc20Approve` / `buildCallEvm`), pre-wired for the chosen Tezos X network |
+| `FreeRouteClient` | low-level HTTP client — free-route reads only; prefer `FreeRouteTezosX`, which also builds ops |
 | `buildSwapOperation` | a free-route `/swap` response → ready-to-sign Tezos ops (approve(s) + swap) |
 | `resolveApproval` / `readAllowance` | read an ERC20 allowance and pick the minimal safe `ApprovalMode` |
 | `objkt.buildFulfillAsk` | objkt v4 `fulfill_ask` op |
 | `buildBatchTransaction` | flatten ops into one atomic group |
 | `targetForMinOut` | gross up an exact-out target so the post-slippage floor covers a hard minimum |
-| `michelsonToEvmAlias` | a Michelson address → its EVM-side alias |
+| `michelsonToEvmAlias` / `evmToMichelsonAlias` / `aliasOf` | map an address to its alias on the other runtime (tz1 → 0x, 0x → KT1, or auto-detect) |
 | `toEvm` / `fromEvm`, `XTZ`, `XTZ_ADDRESS` | XTZ mutez ⇄ wei + the native-XTZ token |
 | `tezosXMainnet` / `tezosXPreviewnet` | network presets (chainId + gateway) |
 
