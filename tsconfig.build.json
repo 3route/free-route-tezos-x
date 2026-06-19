@@ -1,0 +1,16 @@
+{
+  // Builds the publishable library: src/ -> dist/ (.js + .d.ts), ESM-only.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    // Environment-neutral surface: no @types/node, so any Node-only API in src/ fails the build;
+    // fetch/Response come from the Web (DOM) lib, matching both browsers and Node 18+.
+    "types": [],
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src"],
+  "exclude": ["src/tests"]
+}
