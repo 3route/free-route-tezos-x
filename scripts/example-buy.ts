@@ -3,7 +3,7 @@
 // PAY_SYMBOL are the per-run knobs (the exact line scripts/setup.ts prints); the price is read from the ask.
 // Demonstrates the allowance-aware approval flow: swap (price+route+calldata) -> resolveApproval reads the on-chain allowance and picks
 // the safe & minimal mode (skip / approve / reset+approve) -> build the ops. One atomic op-group ending in
-// fulfill_ask. Run:  ASK_ID=2 PAY_SYMBOL=USDC npm run example
+// fulfill_ask. Run:  ASK_ID=2 PAY_SYMBOL=USDC npm run example-buy
 import { InMemorySigner } from '@taquito/signer';
 import { RpcForger, TezosToolkit } from '@taquito/taquito';
 import {
@@ -80,7 +80,7 @@ const swapOps = freeRoute.buildSwapOperation({ swap, srcAddress: payToken.addres
 const fulfillOp = objkt.buildFulfillAsk({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez });
 const group = buildBatchTransaction(swapOps, fulfillOp);
 
-// describe each op in the atomic group (mirrors the dApp's buy breakdown). Order matches `group`:
+// describe each op in the atomic group. Order matches `group`:
 // [reset?] [approve?] swap fulfill_ask — the approve(s) depend on the chosen allowance mode.
 const approveSteps =
   approval === 'resetThenApprove'

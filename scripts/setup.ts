@@ -2,7 +2,7 @@
 //   1. mint a fresh test NFT on TEST_FA2 (to the seller),
 //   2. list it as an ask on the objkt v4 marketplace (priced in XTZ),
 //   3. fund the buyer's EVM alias with the pay-token (swap some of the buyer's XTZ) to 2x the buy's need.
-// Then prints the ready `npm run example` command (with ASK_ID / PRICE_XTZ / PAY_SYMBOL).
+// Then prints the ready `npm run example-buy` command (with ASK_ID / PAY_SYMBOL).
 // Config comes from .env; [PAY_SYMBOL / PRICE_XTZ] are optional per-run overrides.
 // Run:  [PAY_SYMBOL=USDC PRICE_XTZ=0.004] npx tsx scripts/setup.ts
 import { ethers } from 'ethers';
@@ -116,4 +116,4 @@ if (have < needed) {
   console.log(`alias already funded — skip`);
 }
 
-console.log(`\n✅ ready. Run the example:\n   ASK_ID=${askId} PAY_SYMBOL=${PAY_SYMBOL} npm run example`);
+console.log(`\n✅ ready. Run the example:\n   ASK_ID=${askId} PAY_SYMBOL=${PAY_SYMBOL} npm run example-buy`);

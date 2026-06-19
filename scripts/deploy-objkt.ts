@@ -85,4 +85,3 @@ console.log(`   permission_module    ${pm}`);
 console.log(`   fee_sharing_registry ${registry}`);
 console.log(`   marketplace          ${marketplace}`);
 console.log(`\n   Update .env:  OBJKT_MARKETPLACE=${marketplace}`);
-console.log('   (and the dApp lib/config.ts objkt default if you point the UI at it)');
