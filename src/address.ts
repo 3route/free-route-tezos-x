@@ -1,16 +1,17 @@
-import { getAddress as getEvmAddress, isAddress as isEvmAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { PrefixV2, ValidationResult, b58Encode, validateAddress as validateMichelsonAddress } from '@taquito/utils';
 import { blake2b } from '@noble/hashes/blake2';
+import { utf8ToBytes } from '@noble/hashes/utils';
+import { getEvmAddress, isEvmAddress, keccak256 } from './evm.js';
 import type { EvmAddress, MichelsonAddress } from './primitives.js';
 
 /** Michelson address → its EVM alias (0x). */
 export const michelsonToEvmAlias = (michelsonAddress: MichelsonAddress): EvmAddress =>
-  getEvmAddress('0x' + keccak256(toUtf8Bytes(michelsonAddress)).slice(2, 42));
+  getEvmAddress('0x' + keccak256(michelsonAddress).slice(2, 42));
 
 /** EVM address → its Michelson alias (KT1). */
 export const evmToMichelsonAlias = (evmAddress: EvmAddress): MichelsonAddress => {
   const lower = getEvmAddress(evmAddress).toLowerCase();
-  return b58Encode(blake2b(toUtf8Bytes(lower), { dkLen: 20 }), PrefixV2.ContractHash);
+  return b58Encode(blake2b(utf8ToBytes(lower), { dkLen: 20 }), PrefixV2.ContractHash);
 };
 
 /** Resolve an address to its alias on the other runtime (tz→EVM, EVM→KT1). */

@@ -5,10 +5,9 @@
 // Then prints the ready `npm run example-buy` command (with ASK_ID / PAY_SYMBOL).
 // Config comes from .env; [PAY_SYMBOL / PRICE_XTZ] are optional per-run overrides.
 // Run:  [PAY_SYMBOL=USDC PRICE_XTZ=0.004] npx tsx scripts/setup.ts
-import { ethers } from 'ethers';
 import { MichelsonMap, RpcForger, TezosToolkit, UnitValue } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
-import { FreeRouteTezosX, XTZ, michelsonToEvmAlias, targetForMinOut, tezosXPreviewnet, toEvm } from '../src/index.js';
+import { FreeRouteTezosX, XTZ, michelsonToEvmAlias, readErc20Balance, targetForMinOut, tezosXPreviewnet, toEvm } from '../src/index.js';
 import { need } from './env.js';
 import { sendGroup } from './send.js';
 
@@ -80,17 +79,16 @@ await sendOp(await marketplace.methodsObject.ask!({
 // 3) FUND the alias with the pay-token if it's short. Needed amount = the example's exact-out buy input.
 const payToken = (await freeRoute.getTokens()).find((t) => t.symbol === PAY_SYMBOL);
 if (!payToken) throw new Error(`pay-token ${PAY_SYMBOL} not in the free-route registry`);
-const provider = new ethers.JsonRpcProvider(EVM_RPC, undefined, { batchMaxCount: 1 });
-const erc20 = new ethers.Contract(payToken.address, ['function balanceOf(address) view returns (uint256)'], provider) as unknown as { balanceOf(a: string): Promise<bigint> };
+const balanceOf = () => readErc20Balance({ evmRpc: EVM_RPC, token: payToken.address, owner: aliasAddress });
 const fmtPay = (x: bigint) => `${Number(x) / 10 ** payToken.decimals} ${PAY_SYMBOL}`; // base units -> human-readable
 
 // The alias ERC20 balance settles on the EVM side shortly after the Tezos confirmation — poll up to ~15s
 // for it to reach `min` (returns early once it does), instead of a fixed sleep.
 const pollBalance = async (min: bigint, tries = 15): Promise<bigint> => {
-  let bal = await erc20.balanceOf(aliasAddress);
+  let bal = await balanceOf();
   for (let i = 0; i < tries && bal < min; i++) {
     await new Promise((r) => setTimeout(r, 1000));
-    bal = await erc20.balanceOf(aliasAddress);
+    bal = await balanceOf();
   }
   return bal;
 };
@@ -99,7 +97,7 @@ const pollBalance = async (min: bigint, tries = 15): Promise<bigint> => {
 const buyTarget = targetForMinOut(BigInt(PRICE_MUTEZ), SLIPPAGE_BPS);
 const buySwap = await freeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvm(buyTarget, XTZ.address), isExactOut: true, from: aliasAddress, receiver: aliasAddress, slippageBps: SLIPPAGE_BPS });
 const needed = buySwap.srcAmount; // pay-token units the example will spend
-const have = await erc20.balanceOf(aliasAddress);
+const have = await balanceOf();
 console.log(`alias: have ${fmtPay(have)} · need ${fmtPay(needed)} for this buy`);
 
 if (have < needed) {

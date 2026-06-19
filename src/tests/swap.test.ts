@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AbiCoder } from 'ethers';
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
 import type { Swap } from '../free-route/index.js';
 import { buildSwapOperation } from '../operations/swap.js';
 import { callEvmGas } from '../call-evm-limits.js';
+import { decodeUint256 } from '../evm.js';
 import { XTZ } from '../units.js';
 
 type Tx = Extract<ParamsWithKind, { kind: OpKind.TRANSACTION }>; // the transaction variant buildSwapOperation emits
@@ -14,7 +14,6 @@ const GATEWAY = 'KT18oDJJKXMKhfE1bSuAPGp92pYcwVDiqsPw';
 const ROUTER = '0x25896fd23d41c1d9F8779afc0D8AA3f52ca743Dc';
 const USDC = '0x39fD36e60A839DE4cB5DaE0E1009c0aa612Bfba1';
 const erc20Opts = { gateway: GATEWAY, srcAddress: USDC };
-const abi = AbiCoder.defaultAbiCoder();
 
 // minimal Swap; data has a 4-byte selector so .slice(10) yields valid bytes
 const swapWith = (evmGas: bigint, srcAmount = 100n, value = 0n): Swap => ({
@@ -29,7 +28,8 @@ const mich = (op: Tx): any => op.parameter!.value;
 const sigOf = (op: Tx): string => mich(op).args[1].args[0].string;
 const isApprove = (op: Tx) => sigOf(op) === 'approve(address,uint256)';
 const isSwap = (op: Tx) => sigOf(op).startsWith('swap(');
-const approveAmount = (op: Tx): bigint => abi.decode(['address', 'uint256'], '0x' + mich(op).args[1].args[1].args[0].bytes)[1] as bigint;
+// approve calldata is encodeArgs(address,uint256) = two 32-byte words; the amount is the 2nd (hex chars 64..128)
+const approveAmount = (op: Tx): bigint => decodeUint256('0x' + mich(op).args[1].args[1].args[0].bytes.slice(64));
 const limitsOf = (op: Tx) => ({ gasLimit: op.gasLimit, storageLimit: op.storageLimit, fee: op.fee });
 
 test("approval 'none' -> [swap] only; an ERC20 input forwards no XTZ value", () => {

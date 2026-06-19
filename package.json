@@ -60,8 +60,7 @@
     "@taquito/michelson-encoder": "~24.2.0",
     "@taquito/signer": "~24.2.0",
     "@taquito/taquito": "~24.2.0",
-    "@taquito/utils": "~24.2.0",
-    "ethers": "^6.16.0"
+    "@taquito/utils": "~24.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
