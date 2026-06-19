@@ -3,6 +3,30 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Prepare free-route swaps (ERC20/XTZ -> ERC20/XTZ) on Tezos X from the Michelson side as ready-to-sign Tezos ops; native-XTZ output auto-forwards to the Michelson address. Compose marketplace ops (objkt) into one atomic group.",
+  "license": "MIT",
+  "author": "Baking Bad",
+  "keywords": [
+    "tezos",
+    "tezos-x",
+    "free-route",
+    "swap",
+    "dex",
+    "erc20",
+    "objkt",
+    "nft",
+    "marketplace",
+    "michelson",
+    "etherlink",
+    "defi"
+  ],
+  "homepage": "https://github.com/maxima-net/evm-objkt#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxima-net/evm-objkt.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maxima-net/evm-objkt/issues"
+  },
   "engines": {
     "node": ">=20"
   },
