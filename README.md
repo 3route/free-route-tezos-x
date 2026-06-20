@@ -30,7 +30,11 @@ import {
 } from 'free-route-tezos-x';
 
 const tezos = new TezosToolkit(MICHELSON_RPC); // bring your own signer / wallet
-const freeRoute = new FreeRouteTezosX({ baseUrl: FREE_ROUTE_API, network: tezosXMainnet });
+const freeRoute = new FreeRouteTezosX({
+  baseUrl: FREE_ROUTE_API,
+  network: tezosXMainnet,
+  apiKey: FREE_ROUTE_API_KEY, // optional — HTTP Basic key for a hosted free-route server; omit for a keyless/local one
+});
 
 const me = await tezos.wallet.pkh();            // your Michelson address
 const alias = michelsonToEvmAlias(me);          // its EVM-side identity (holds the ERC20)
