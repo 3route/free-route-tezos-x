@@ -2,7 +2,7 @@
   "name": "free-route-tezos-x",
   "version": "0.1.0",
   "type": "module",
-  "description": "Turn free-route swaps (any ERC20/XTZ pair) on Tezos X into ready-to-sign Tezos ops, signed from the Michelson side; native-XTZ output auto-forwards to the Michelson address. Compose with marketplace ops (e.g. objkt) into one atomic group — e.g. pay any ERC20 for an XTZ-priced NFT.",
+  "description": "SDK for free-route swaps on Tezos X — turn any ERC20/XTZ swap into ready-to-sign Tezos operations, signed from the Michelson side.",
   "license": "MIT",
   "author": "Baking Bad",
   "keywords": [
