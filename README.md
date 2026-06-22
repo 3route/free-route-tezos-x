@@ -1,6 +1,6 @@
 # @baking-bad/free-route-tezos-x
 
-[![CI](https://github.com/3route/free-route-tezos-x/actions/workflows/ci.yml/badge.svg)](https://github.com/3route/free-route-tezos-x/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@baking-bad/free-route-tezos-x)](https://www.npmjs.com/package/@baking-bad/free-route-tezos-x) [![CI](https://github.com/3route/free-route-tezos-x/actions/workflows/ci.yml/badge.svg)](https://github.com/3route/free-route-tezos-x/actions/workflows/ci.yml)
 
 Turn **free-route** swaps (any ERC20/XTZ pair) on **Tezos X** into ready-to-sign Tezos operations, signed from the Michelson side. Native-XTZ output auto-forwards to your Michelson address. Compose with marketplace ops (e.g. [objkt](https://objkt.com)) into one atomic group — for example, **pay any ERC20 for an XTZ-priced NFT**.
 

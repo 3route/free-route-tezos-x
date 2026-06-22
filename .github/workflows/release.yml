@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # OIDC — npm provenance + trusted publishing (no NPM_TOKEN secret)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install -g npm@latest # ensure a version with OIDC trusted publishing
+      - run: npm ci
+      - name: Tag must match package.json version
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          TAG="${GITHUB_REF_NAME#v}"
+          test "$PKG" = "$TAG" || { echo "::error::tag $TAG != package.json $PKG"; exit 1; }
+      - run: npm run check
+      - run: npm test
+      - run: npm publish --provenance --access public
