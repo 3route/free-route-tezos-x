@@ -36,31 +36,52 @@ const freeRoute = new FreeRouteTezosX({
   apiKey: FREE_ROUTE_API_KEY, // optional — HTTP Basic key for a hosted free-route server; omit for a keyless/local one
 });
 
-const me = await tezos.wallet.pkh();            // your Michelson address
-const alias = michelsonToEvmAlias(me);          // its EVM-side identity (holds the ERC20)
-const pay = (await freeRoute.getTokens()).find((t) => t.symbol === 'USDC')!;
+const buyerAddress = await tezos.signer.publicKeyHash(); // your Michelson address
+const buyerAlias = michelsonToEvmAlias(buyerAddress);  // its EVM-side identity (holds the ERC20)
+const payToken = (await freeRoute.getTokens()).find((token) => token.symbol === 'USDC')!;
 
-const priceMutez = 4_000n;                       // the ask price (read it from the marketplace)
-const slippageBps = 200;                         // 2%
+const priceMutez = 4_000n;  // the ask price (read it from the marketplace)
+const slippageBps = 200;    // 2%
 
-// exact-out swap: pay-token -> XTZ, sized so the on-chain floor covers the price
+// exact-out swap, sized so the on-chain floor (target − slippage) still covers the price
+const minOutTarget = targetForMinOut(priceMutez, slippageBps);
+const swapAmount = toEvm(minOutTarget, XTZ.address); // mutez -> wei for the EVM API
+
 const swap = await freeRoute.getSwap({
-  src: pay.address, dst: XTZ.address,
-  amount: toEvm(targetForMinOut(priceMutez, slippageBps), XTZ.address),
-  isExactOut: true, from: alias, receiver: alias, slippageBps,
+  src: payToken.address,
+  dst: XTZ.address,
+  amount: swapAmount,
+  isExactOut: true,
+  from: buyerAlias,
+  receiver: buyerAlias,
+  slippageBps,
 });
 
-// read the on-chain allowance (alias -> router) and pick the safe & minimal approval mode
+// read the on-chain allowance (alias -> router) and pick the safe & minimal approval mode (none / approve / reset+approve)
 const approval = await resolveApproval({
-  evmRpc: EVM_RPC, token: pay.address, owner: alias, spender: swap.tx.to, amount: swap.srcAmount,
+  evmRpc: EVM_RPC,
+  token: payToken.address,
+  owner: buyerAlias,
+  spender: swap.tx.to,
+  amount: swap.srcAmount,
 });
 
 // approve(s) + swap, composed with the marketplace fulfill -> one atomic group
-const swapOps = freeRoute.buildSwapOperation({ swap, srcAddress: pay.address, approval });
-const fulfill = objkt.buildFulfillAsk({ marketplace: OBJKT_MARKETPLACE, askId: '1', editions: 1, amountMutez: priceMutez });
+const swapOps = freeRoute.buildSwapOperation({
+  swap,
+  srcAddress: payToken.address,
+  approval,
+});
+const fulfill = objkt.buildFulfillAsk({
+  marketplace: OBJKT_MARKETPLACE,
+  askId: '1',
+  editions: 1,
+  amountMutez: priceMutez,
+});
 
 const ops = buildBatchTransaction(swapOps, fulfill);
-await (await tezos.wallet.batch(ops).send()).confirmation(); // a single signature
+const batch = await tezos.contract.batch().with(ops).send(); // a single signature
+await batch.confirmation();
 ```
 
 Just need a swap (no marketplace)? Stop after `buildSwapOperation` and send `swapOps`.
