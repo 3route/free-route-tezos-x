@@ -1,7 +1,10 @@
 {
-  "name": "free-route-tezos-x",
+  "name": "@baking-bad/free-route-tezos-x",
   "version": "0.1.0",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "SDK for free-route swaps on Tezos X — turn any ERC20/XTZ swap into ready-to-sign Tezos operations, signed from the Michelson side.",
   "license": "MIT",
   "author": "Baking Bad",
@@ -19,13 +22,13 @@
     "etherlink",
     "defi"
   ],
-  "homepage": "https://github.com/maxima-net/evm-objkt#readme",
+  "homepage": "https://github.com/3route/free-route-tezos-x#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maxima-net/evm-objkt.git"
+    "url": "git+https://github.com/3route/free-route-tezos-x.git"
   },
   "bugs": {
-    "url": "https://github.com/maxima-net/evm-objkt/issues"
+    "url": "https://github.com/3route/free-route-tezos-x/issues"
   },
   "engines": {
     "node": ">=20"
