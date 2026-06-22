@@ -1,5 +1,5 @@
-import { keccak_256 } from '@noble/hashes/sha3';
-import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import type { EvmAddress, Hex } from './primitives.js';
 
 /** keccak-256 of bytes (or a UTF-8 string) as 0x-hex. */

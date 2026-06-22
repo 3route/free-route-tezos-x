@@ -1,6 +1,6 @@
 import { PrefixV2, ValidationResult, b58Encode, validateAddress as validateMichelsonAddress } from '@taquito/utils';
-import { blake2b } from '@noble/hashes/blake2';
-import { utf8ToBytes } from '@noble/hashes/utils';
+import { blake2b } from '@noble/hashes/blake2.js';
+import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { getEvmAddress, isEvmAddress, keccak256 } from './evm.js';
 import type { EvmAddress, MichelsonAddress } from './primitives.js';
 
