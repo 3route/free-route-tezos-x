@@ -22,6 +22,6 @@ export const isXtz = (address: EvmAddress): boolean => address.toLowerCase() ===
 
 // Unit boundary — XTZ is mutez consumer-side, wei API-side; ERC20 is identical on both.
 /** Convert a consumer-side amount to the EVM API's units (mutez→wei for XTZ; identity for ERC20). */
-export const toEvm = (amount: bigint, address: EvmAddress): bigint => (isXtz(address) ? xtzMutezToWei(amount) : amount);
+export const toEvmUnits = (amount: bigint, address: EvmAddress): bigint => (isXtz(address) ? xtzMutezToWei(amount) : amount);
 /** Convert an EVM-API amount back to consumer-side units (wei→mutez for XTZ; identity for ERC20). */
-export const fromEvm = (amount: bigint, address: EvmAddress): bigint => (isXtz(address) ? xtzWeiToMutez(amount) : amount);
+export const fromEvmUnits = (amount: bigint, address: EvmAddress): bigint => (isXtz(address) ? xtzWeiToMutez(amount) : amount);

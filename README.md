@@ -25,7 +25,7 @@ Buy an XTZ-priced objkt NFT paying USDC, in one atomic group:
 ```ts
 import { TezosToolkit } from '@taquito/taquito';
 import {
-  FreeRouteTezosX, tezosXMainnet, XTZ, toEvm, targetForMinOut,
+  FreeRouteTezosX, tezosXMainnet, XTZ, toEvmUnits, targetForMinOut,
   michelsonToEvmAlias, resolveApproval, buildBatchTransaction, objkt,
 } from '@baking-bad/free-route-tezos-x';
 
@@ -45,7 +45,7 @@ const slippageBps = 200;    // 2%
 
 // exact-out swap, sized so the on-chain floor (target − slippage) still covers the price
 const minOutTarget = targetForMinOut(priceMutez, slippageBps);
-const swapAmount = toEvm(minOutTarget, XTZ.address); // mutez -> wei for the EVM API
+const swapAmount = toEvmUnits(minOutTarget, XTZ.address); // mutez -> wei for the EVM API
 
 const swap = await freeRoute.getSwap({
   src: payToken.address,
@@ -98,7 +98,7 @@ Just need a swap (no marketplace)? Stop after `buildSwapOperation` and send `swa
 | `buildBatchTransaction` | flatten ops into one atomic group |
 | `targetForMinOut` | gross up an exact-out target so the post-slippage floor covers a hard minimum |
 | `michelsonToEvmAlias` / `evmToMichelsonAlias` / `aliasOf` | map an address to its alias on the other runtime (tz1 → 0x, 0x → KT1, or auto-detect) |
-| `toEvm` / `fromEvm`, `XTZ`, `XTZ_ADDRESS` | XTZ mutez ⇄ wei + the native-XTZ token |
+| `toEvmUnits` / `fromEvmUnits`, `XTZ`, `XTZ_ADDRESS` | XTZ mutez ⇄ wei + the native-XTZ token |
 | `tezosXMainnet` / `tezosXPreviewnet` | network presets (chainId + gateway) |
 
 All builders accept options objects and return Taquito `ParamsWithKind` — you choose how to sign.

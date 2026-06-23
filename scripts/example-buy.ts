@@ -10,12 +10,12 @@ import {
   XTZ,
   FreeRouteTezosX,
   buildBatchTransaction,
-  fromEvm,
+  fromEvmUnits,
   michelsonToEvmAlias,
   objkt,
   resolveApproval,
   targetForMinOut,
-  toEvm,
+  toEvmUnits,
   tezosXPreviewnet,
 } from '../src/index.js';
 import { env, need } from './env.js';
@@ -58,7 +58,7 @@ const priceMutez = BigInt(ask.amount.toString());
 
 // 1. swap: exact-out payToken -> XTZ, sized so the on-chain floor still covers the ask price.
 const minOutTarget = targetForMinOut(priceMutez, SLIPPAGE_BPS);
-const swapAmount = toEvm(minOutTarget, XTZ.address); // mutez -> wei for the EVM API
+const swapAmount = toEvmUnits(minOutTarget, XTZ.address); // mutez -> wei for the EVM API
 const swap = await freeRoute.getSwap({
   src: payToken.address,
   dst: XTZ.address,
@@ -79,7 +79,7 @@ const approval = await resolveApproval({
   spender: router,
   amount: srcAmount,
 });
-console.log(`buyer ${buyerMichelsonAddress} · pay ≤ ${fmtPay(srcAmount)} · receive ≥ ${fmtXtz(fromEvm(swap.dstAmountMin, XTZ.address))} · router ${router}`);
+console.log(`buyer ${buyerMichelsonAddress} · pay ≤ ${fmtPay(srcAmount)} · receive ≥ ${fmtXtz(fromEvmUnits(swap.dstAmountMin, XTZ.address))} · router ${router}`);
 console.log(`need ${fmtPay(srcAmount)} → approval='${approval}'`);
 
 // 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
@@ -97,7 +97,7 @@ const approveSteps =
       : []; // 'none' — existing allowance already covers it
 const steps = [
   ...approveSteps,
-  `swap (call_evm) — ${fmtPay(srcAmount)} → ≥ ${fmtXtz(fromEvm(swap.dstAmountMin, XTZ.address))} native XTZ on alias ${buyerAlias}, auto-forwarded to ${buyerMichelsonAddress}`,
+  `swap (call_evm) — ${fmtPay(srcAmount)} → ≥ ${fmtXtz(fromEvmUnits(swap.dstAmountMin, XTZ.address))} native XTZ on alias ${buyerAlias}, auto-forwarded to ${buyerMichelsonAddress}`,
   `fulfill_ask — buy ask#${ASK_ID} for ${Number(priceMutez) / 1e6} XTZ`,
 ];
 console.log(`atomic group — ${group.length} ops, one signature:`);

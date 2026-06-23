@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { XTZ, isXtz, toEvm, fromEvm, xtzMutezToWei, xtzWeiToMutez } from '../units.js';
+import { XTZ, isXtz, toEvmUnits, fromEvmUnits, xtzMutezToWei, xtzWeiToMutez } from '../units.js';
 
 const USDC = '0x39fD36e60A839DE4cB5DaE0E1009c0aa612Bfba1';
 const WEI_PER_MUTEZ = 1_000_000_000_000n; // 1e12
@@ -22,11 +22,11 @@ test('isXtz is true only for the native (zero) address', () => {
   assert.equal(isXtz(USDC), false);
 });
 
-test('toEvm/fromEvm convert XTZ (mutez<->wei) and pass ERC20 amounts through unchanged', () => {
-  assert.equal(toEvm(4000n, XTZ.address), 4000n * WEI_PER_MUTEZ);
-  assert.equal(fromEvm(4000n * WEI_PER_MUTEZ, XTZ.address), 4000n);
-  assert.equal(toEvm(250n, USDC), 250n); // ERC20: identity
-  assert.equal(fromEvm(250n, USDC), 250n); // ERC20: identity
+test('toEvmUnits/fromEvmUnits convert XTZ (mutez<->wei) and pass ERC20 amounts through unchanged', () => {
+  assert.equal(toEvmUnits(4000n, XTZ.address), 4000n * WEI_PER_MUTEZ);
+  assert.equal(fromEvmUnits(4000n * WEI_PER_MUTEZ, XTZ.address), 4000n);
+  assert.equal(toEvmUnits(250n, USDC), 250n); // ERC20: identity
+  assert.equal(fromEvmUnits(250n, USDC), 250n); // ERC20: identity
 });
 
 test('XTZ token: native zero address, 6 decimals (the mutez view)', () => {

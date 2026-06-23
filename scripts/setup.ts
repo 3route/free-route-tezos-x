@@ -7,7 +7,7 @@
 // Run:  [PAY_SYMBOL=USDC PRICE_XTZ=0.004] npx tsx scripts/setup.ts
 import { MichelsonMap, RpcForger, TezosToolkit, UnitValue } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
-import { FreeRouteTezosX, XTZ, michelsonToEvmAlias, readErc20Balance, targetForMinOut, tezosXPreviewnet, toEvm } from '../src/index.js';
+import { FreeRouteTezosX, XTZ, michelsonToEvmAlias, readErc20Balance, targetForMinOut, tezosXPreviewnet, toEvmUnits } from '../src/index.js';
 import { need } from './env.js';
 import { sendGroup } from './send.js';
 
@@ -95,7 +95,7 @@ const pollBalance = async (min: bigint, tries = 15): Promise<bigint> => {
 
 // what the example buy (payToken -> XTZ, exact-out sized to cover the price) will spend
 const buyTarget = targetForMinOut(BigInt(PRICE_MUTEZ), SLIPPAGE_BPS);
-const buySwap = await freeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvm(buyTarget, XTZ.address), isExactOut: true, from: aliasAddress, receiver: aliasAddress, slippageBps: SLIPPAGE_BPS });
+const buySwap = await freeRoute.getSwap({ src: payToken.address, dst: XTZ.address, amount: toEvmUnits(buyTarget, XTZ.address), isExactOut: true, from: aliasAddress, receiver: aliasAddress, slippageBps: SLIPPAGE_BPS });
 const needed = buySwap.srcAmount; // pay-token units the example will spend
 const have = await balanceOf();
 console.log(`alias: have ${fmtPay(have)} · need ${fmtPay(needed)} for this buy`);
