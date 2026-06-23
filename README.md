@@ -86,6 +86,52 @@ await batch.confirmation();
 
 Just need a swap (no marketplace)? Stop after `buildSwapOperation` and send `swapOps`.
 
+## Keep your API key server-side
+
+The Quick start builds the client in one place for brevity. To keep a hosted free-route API key off the browser, split the read surface: run a keyed `FreeRouteClient` on your server behind thin proxy routes, and implement the `FreeRouteApi` interface on the client against those routes. `serialize*` / `parse*` carry quotes and swaps across the JSON boundary without losing their bigint fields (token reads are plain JSON — no `serialize` step).
+
+**Server** — the API key lives here, never in the browser:
+
+```ts
+import { FreeRouteClient, tezosXMainnet, serializeQuote, serializeSwap } from '@baking-bad/free-route-tezos-x';
+import type { QuoteQuery, SwapQuery } from '@baking-bad/free-route-tezos-x';
+
+const freeRoute = new FreeRouteClient({
+  baseUrl: FREE_ROUTE_API,
+  chainId: tezosXMainnet.chainId,
+  apiKey: FREE_ROUTE_API_KEY,
+});
+
+// behind your own routes (Next, Express, …); serialize* makes the model JSON-safe (bigint -> string)
+export const routes = {
+  tokens: () => freeRoute.getTokens(),
+  quote: async (q: QuoteQuery) => serializeQuote(await freeRoute.getQuote(q)),
+  swap: async (q: SwapQuery) => serializeSwap(await freeRoute.getSwap(q)),
+};
+```
+
+**Client** — talks to your own endpoints (no key), parses DTOs back into typed models:
+
+```ts
+import { parseQuote, parseSwap } from '@baking-bad/free-route-tezos-x';
+import type {
+  FreeRouteApi, FreeRouteToken, QuoteQuery, QuoteResponseDto, SwapResponseDto,
+} from '@baking-bad/free-route-tezos-x';
+
+// your transport to the server routes above; `toParams` serializes a query into the URL
+const get = <T>(path: string, query?: QuoteQuery): Promise<T> =>
+  fetch(`/free-route/${path}` + (query ? `?${toParams(query)}` : '')).then((r) => r.json());
+
+// implement FreeRouteApi over your proxy — the rest of your app uses it like a direct client
+export const freeRoute: FreeRouteApi = {
+  getTokens: () => get<FreeRouteToken[]>('tokens'),
+  getQuote: async (q) => parseQuote(await get<QuoteResponseDto>('quote', q)),
+  getSwap: async (q) => parseSwap(await get<SwapResponseDto>('swap', q)),
+};
+```
+
+The [demo dApp](https://github.com/3route/free-route-tezos-x-example) wires exactly this — Next.js route handlers plus a browser shim.
+
 ## API
 
 | Export | What |
