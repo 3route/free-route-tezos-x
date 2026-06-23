@@ -35,7 +35,7 @@ const SLIPPAGE_BPS = 200; // 2%
 const tezos = new TezosToolkit(MICHELSON_RPC);
 tezos.setProvider({ signer: new InMemorySigner(need('BUYER_MICHELSON_SK')) });
 tezos.setForgerProvider(tezos.getFactory(RpcForger)()); // previewnet rejects local forging
-// A hosted free-route server needs an HTTP Basic api key; the local dev server is keyless. This script runs in Node
+// A hosted free-route server needs an api key; the local dev server is keyless. This script runs in Node
 // (server-side), so the key goes straight on the client. Set FREE_ROUTE_API_KEY='YourApiKey', or omit for local.
 const freeRoute = new FreeRouteTezosX({
     network: NETWORK,

@@ -33,7 +33,7 @@ const tezos = new TezosToolkit(MICHELSON_RPC); // bring your own signer / wallet
 const freeRoute = new FreeRouteTezosX({
   baseUrl: FREE_ROUTE_API,
   network: tezosXMainnet,
-  apiKey: FREE_ROUTE_API_KEY, // optional — HTTP Basic key for a hosted free-route server; omit for a keyless/local one
+  apiKey: FREE_ROUTE_API_KEY, // free-route API key
 });
 
 const buyerAddress = await tezos.signer.publicKeyHash(); // your Michelson address
