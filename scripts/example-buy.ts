@@ -44,7 +44,7 @@ const freeRoute = new FreeRouteTezosX({
 });
 
 const buyerMichelsonAddress = await tezos.signer.publicKeyHash();
-const alias = michelsonToEvmAlias(buyerMichelsonAddress); // the EVM-side identity that holds the ERC20 / runs the swap
+const buyerAlias = michelsonToEvmAlias(buyerMichelsonAddress); // the EVM-side identity that holds the ERC20 / runs the swap
 const payToken = (await freeRoute.getTokens()).find((t) => t.symbol === PAY_SYMBOL);
 if (!payToken) throw new Error(`pay token ${PAY_SYMBOL} not in the free-route registry`);
 const fmtPay = (x: bigint) => `${Number(x) / 10 ** payToken.decimals} ${PAY_SYMBOL}`; // base units -> human-readable
@@ -56,22 +56,29 @@ const ask = await ((await marketplace.storage()) as { asks: { get(id: string): P
 if (!ask) throw new Error(`ask #${ASK_ID} not found (already sold, or wrong OBJKT_MARKETPLACE)`);
 const priceMutez = BigInt(ask.amount.toString());
 
-// 1. swap: exact-out payToken -> XTZ (price + route + calldata), sized so the on-chain floor covers the ask price.
-const target = targetForMinOut(priceMutez, SLIPPAGE_BPS);
+// 1. swap: exact-out payToken -> XTZ, sized so the on-chain floor still covers the ask price.
+const minOutTarget = targetForMinOut(priceMutez, SLIPPAGE_BPS);
+const swapAmount = toEvm(minOutTarget, XTZ.address); // mutez -> wei for the EVM API
 const swap = await freeRoute.getSwap({
   src: payToken.address,
   dst: XTZ.address,
-  amount: toEvm(target, XTZ.address), // mutez -> wei for the EVM API
+  amount: swapAmount,
   isExactOut: true,
-  from: alias,
-  receiver: alias,
+  from: buyerAlias,
+  receiver: buyerAlias,
   slippageBps: SLIPPAGE_BPS,
 });
 const srcAmount = swap.srcAmount; // payToken the swap will pull
 const router = swap.tx.to;
 
-// 2. let the SDK read the on-chain allowance (alias -> router) and pick the safe & minimal approval mode.
-const approval = await resolveApproval({ evmRpc: EVM_RPC, token: payToken.address, owner: alias, spender: router, amount: srcAmount });
+// 2. read the on-chain allowance (alias -> router) -> pick the minimal safe approval mode (none / approve / reset+approve)
+const approval = await resolveApproval({
+  evmRpc: EVM_RPC,
+  token: payToken.address,
+  owner: buyerAlias,
+  spender: router,
+  amount: srcAmount,
+});
 console.log(`buyer ${buyerMichelsonAddress} · pay ≤ ${fmtPay(srcAmount)} · receive ≥ ${fmtXtz(fromEvm(swap.dstAmountMin, XTZ.address))} · router ${router}`);
 console.log(`need ${fmtPay(srcAmount)} → approval='${approval}'`);
 
@@ -90,7 +97,7 @@ const approveSteps =
       : []; // 'none' — existing allowance already covers it
 const steps = [
   ...approveSteps,
-  `swap (call_evm) — ${fmtPay(srcAmount)} → ≥ ${fmtXtz(fromEvm(swap.dstAmountMin, XTZ.address))} native XTZ on alias ${alias}, auto-forwarded to ${buyerMichelsonAddress}`,
+  `swap (call_evm) — ${fmtPay(srcAmount)} → ≥ ${fmtXtz(fromEvm(swap.dstAmountMin, XTZ.address))} native XTZ on alias ${buyerAlias}, auto-forwarded to ${buyerMichelsonAddress}`,
   `fulfill_ask — buy ask#${ASK_ID} for ${Number(priceMutez) / 1e6} XTZ`,
 ];
 console.log(`atomic group — ${group.length} ops, one signature:`);

@@ -57,7 +57,7 @@ const swap = await freeRoute.getSwap({
   slippageBps,
 });
 
-// read the on-chain allowance (alias -> router) and pick the safe & minimal approval mode (none / approve / reset+approve)
+// read the on-chain allowance -> pick the minimal safe approval mode (none / approve / reset+approve)
 const approval = await resolveApproval({
   evmRpc: EVM_RPC,
   token: payToken.address,
