@@ -37,6 +37,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./michelson": {
+      "types": "./dist/michelson/index.d.ts",
+      "default": "./dist/michelson/index.js"
+    },
+    "./evm": {
+      "types": "./dist/evm/index.d.ts",
+      "default": "./dist/evm/index.js"
     }
   },
   "main": "./dist/index.js",
@@ -50,24 +58,33 @@
     "lint": "eslint .",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "prepare": "npm run build",
-    "test": "tsx --test src/tests/*.test.ts",
-    "setup": "tsx scripts/setup.ts",
-    "example-buy": "tsx scripts/example-buy.ts",
-    "addresses": "tsx scripts/addresses.ts",
+    "test": "tsx --test src/tests/*/*.test.ts",
+    "setup": "tsx scripts/shared/setup.ts",
+    "example-buy:michelson": "tsx scripts/michelson/example-buy.ts",
+    "example-buy:evm": "tsx scripts/evm/example-buy.ts",
+    "bridge:evm": "tsx scripts/evm/bridge.ts",
+    "addresses:michelson": "tsx scripts/michelson/addresses.ts",
+    "addresses:evm": "tsx scripts/evm/addresses.ts",
     "compile:fa2": "ligo compile contract contracts/fa2_nft.mligo --michelson-format json -o contracts/fa2_nft.json",
-    "deploy:fa2": "tsx scripts/deploy-fa2.ts",
-    "deploy:objkt": "tsx scripts/deploy-objkt.ts"
+    "deploy:fa2": "tsx scripts/shared/deploy-fa2.ts",
+    "deploy:objkt": "tsx scripts/shared/deploy-objkt.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0"
   },
   "peerDependencies": {
+    "@taquito/michel-codec": "^24.2.0",
     "@taquito/michelson-encoder": "^24.2.0",
     "@taquito/taquito": "^24.2.0",
     "@taquito/utils": "^24.2.0"
   },
+  "peerDependenciesMeta": {
+    "@taquito/michel-codec": { "optional": true },
+    "@taquito/taquito": { "optional": true }
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@taquito/michel-codec": "~24.3.0",
     "@taquito/michelson-encoder": "~24.3.0",
     "@taquito/signer": "~24.3.0",
     "@taquito/taquito": "~24.3.0",
@@ -76,6 +93,7 @@
     "eslint": "^10.5.0",
     "tsx": "^4.19.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.1"
+    "typescript-eslint": "^8.61.1",
+    "viem": "^2.53.1"
   }
 }
