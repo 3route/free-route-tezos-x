@@ -1,6 +1,6 @@
 {
   "name": "@baking-bad/free-route-tezos-x",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -79,8 +79,12 @@
     "@taquito/utils": "^24.2.0"
   },
   "peerDependenciesMeta": {
-    "@taquito/michel-codec": { "optional": true },
-    "@taquito/taquito": { "optional": true }
+    "@taquito/michel-codec": {
+      "optional": true
+    },
+    "@taquito/taquito": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
