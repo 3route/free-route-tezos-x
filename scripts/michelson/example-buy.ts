@@ -29,6 +29,7 @@ const NETWORK = tezosXPreviewnet; // chainId + gateway
 const OBJKT_MARKETPLACE = need('OBJKT_MARKETPLACE'); // objkt v4 marketplace
 const ASK_ID = need('ASK_ID'); // required — guards against buying a stale ask
 const PAY_SYMBOL = env.PAY_SYMBOL ?? 'USDC'; // ERC20 to pay with (held on the buyer's alias)
+const NFT_RECIPIENT = env.NFT_RECIPIENT; // optional: send the NFT to a DIFFERENT Michelson address (objkt v4 %proxy_for). Default: the buyer.
 const SLIPPAGE_BPS = 200; // 2%
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ console.log(`need ${fmtPay(srcAmount)} → approval='${approval}'`);
 
 // 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
 const swapOps = freeRoute.michelson.buildSwapOperation({ swap, srcAddress: payToken.address, approval });
-const fulfillOp = objkt.buildMichelsonFulfillAskOperation({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez });
+const fulfillOp = objkt.buildMichelsonFulfillAskOperation({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez, recipient: NFT_RECIPIENT });
 const group = buildBatchTransaction(swapOps, fulfillOp);
 
 // describe each op in the atomic group. Order matches `group`:
@@ -98,7 +99,7 @@ const approveSteps =
 const steps = [
   ...approveSteps,
   `swap (call_evm) — ${fmtPay(srcAmount)} → ≥ ${fmtXtz(fromEvmUnits(swap.dstAmountMin, XTZ.address))} native XTZ on alias ${buyerAlias}, auto-forwarded to ${buyerMichelsonAddress}`,
-  `fulfill_ask — buy ask#${ASK_ID} for ${Number(priceMutez) / 1e6} XTZ`,
+  `fulfill_ask — buy ask#${ASK_ID} for ${Number(priceMutez) / 1e6} XTZ${NFT_RECIPIENT ? ` · NFT → ${NFT_RECIPIENT} (proxy_for)` : ` · NFT → ${buyerMichelsonAddress}`}`,
 ];
 console.log(`atomic group — ${group.length} ops, one signature:`);
 steps.forEach((s, i) => console.log(`  ${i + 1}. ${s}`));

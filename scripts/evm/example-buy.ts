@@ -15,6 +15,7 @@ const OBJKT_MARKETPLACE = need('OBJKT_MARKETPLACE');
 const ASK_ID = need('ASK_ID'); // guards against buying a stale ask
 const EVM_EXPLORER = need('EVM_EXPLORER');
 const PAY_SYMBOL = env.PAY_SYMBOL ?? 'USDC';
+const NFT_RECIPIENT = env.NFT_RECIPIENT; // optional: send the NFT to a DIFFERENT Michelson address (objkt v4 %proxy_for). Default: the EVM account's KT1 alias.
 const SLIPPAGE_BPS = 200; // 2%
 
 const fr = newFreeRoute();
@@ -42,7 +43,7 @@ const approval = await resolveApproval({ evmRpc: EVM_RPC, token: payToken.addres
 const swapTxs = fr.evm.buildSwapTransaction({ swap, srcAddress: payToken.address, approval }); // [reset?, approve, swapTx]
 
 // 3. fulfill the ask from the EVM side (callMichelson; the swapped XTZ funds msg.value; NFT -> alias).
-const fulfillTx = objkt.buildEvmFulfillAskTransaction({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez });
+const fulfillTx = objkt.buildEvmFulfillAskTransaction({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez, recipient: NFT_RECIPIENT });
 
 const batch = [...swapTxs, fulfillTx];
 
@@ -56,7 +57,7 @@ const approveSteps =
 const steps = [
   ...approveSteps,
   `swap — ${fmtPay(swap.srcAmount)} → ≥ ${fmtXtz(fromEvmUnits(swap.dstAmountMin, XTZ.address))} native XTZ on ${from} (funds the fulfill)`,
-  `fulfill_ask (callMichelson) — buy ask#${ASK_ID} for ${Number(priceMutez) / 1e6} XTZ, NFT → alias ${alias}`,
+  `fulfill_ask (callMichelson) — buy ask#${ASK_ID} for ${Number(priceMutez) / 1e6} XTZ, NFT → ${NFT_RECIPIENT ? `${NFT_RECIPIENT} (proxy_for)` : `alias ${alias}`}`,
 ];
 
 console.log(`buyer ${from} (alias ${alias})`);
@@ -64,4 +65,4 @@ console.log(`pay ≤ ${fmtPay(swap.srcAmount)} · receive ≥ ${fmtXtz(fromEvmUn
 console.log(`EVM batch — ${batch.length} tx, sent sequentially (a dApp sends them atomically in one wallet_sendCalls / EIP-5792):`);
 steps.forEach((s, i) => console.log(`  ${i + 1}. ${s}`));
 const hashes = await sendSequential(batch, EVM_EXPLORER);
-console.log(`\n✅ done — ${hashes.length} tx confirmed, NFT bought onto alias ${alias}`);
+console.log(`\n✅ done — ${hashes.length} tx confirmed, NFT → ${NFT_RECIPIENT ?? `alias ${alias}`}`);

@@ -4,8 +4,8 @@ Dev/demo scripts for **Tezos X previewnet**. Each loads `.env` (copy from [`../.
 
 Grouped by side, mirroring `src/`:
 - **`shared/`** — `env.ts` (config), `client.ts` (free-route client + token/ask-price helpers), `setup.ts`, `deploy-*.ts` (one-time on-chain fixtures, built with Taquito).
-- **`michelson/`** — Temple-style flow: `addresses.ts`, `send.ts` (Taquito sender), `example-buy.ts`.
-- **`evm/`** — MetaMask-style flow: `addresses.ts`, `send.ts` (viem sender), `fund.ts` (token top-up helper, used by `setup`), `bridge.ts`, `example-buy.ts`.
+- **`michelson/`** — Temple-style flow: `addresses.ts`, `send.ts` (Taquito sender), `bridge.ts` (swap), `example-buy.ts`.
+- **`evm/`** — MetaMask-style flow: `addresses.ts`, `send.ts` (viem sender), `fund.ts` (token top-up helper, used by `setup`), `bridge.ts` (swap), `example-buy.ts`.
 
 Both buy flows purchase the **same listed ask** (created by `setup`); they differ only in which wallet signs.
 
@@ -29,7 +29,7 @@ After the first run, repeat only **setup → a buy** for each new ask.
 1. Put an EVM key in `.env` as **`EVM_SK`**, funded with gas XTZ on its `0x…` (faucet) — `npm run addresses:evm` prints the address + balance + alias.
 2. With `EVM_SK` set, `npm run setup` also auto-funds the EVM account's `PAY_SYMBOL` (EVM-signed swap, the account pays its own XTZ). Then: `ASK_ID=… PAY_SYMBOL=USDC npm run example-buy:evm`.
 
-`bridge:evm` is a standalone Bridge demo (swap XTZ → token on the EVM account) — not required for the buy.
+`bridge:evm` / `bridge:michelson` are standalone swap demos (`SRC_SYMBOL` → `DST_SYMBOL` on the account; see defaults in the table below) — not required for the buy.
 
 ## Commands
 
@@ -41,12 +41,16 @@ After the first run, repeat only **setup → a buy** for each new ask.
 | `deploy:fa2` | originate the demo FA2 NFT → prints `TEST_FA2` | `MICHELSON_RPC`, `BUYER_MICHELSON_SK` | — |
 | `deploy:objkt` | originate the objkt v4 system → prints `OBJKT_MARKETPLACE` | `MICHELSON_RPC`, `BUYER_MICHELSON_SK` | — |
 | `setup` | mint + list an ask + fund the alias (and the EVM account if `EVM_SK` set) → prints `ASK_ID` | `MICHELSON_RPC`, `EVM_RPC`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `TZKT_EXPLORER`, both `*_SK`, `TEST_FA2`, `OBJKT_MARKETPLACE` | `PAY_SYMBOL` (USDC), `PRICE_XTZ` (0.004); `EVM_SK` + `EVM_EXPLORER` to also fund the EVM account |
-| `example-buy:michelson` | **Michelson:** pay an ERC20 → buy the ask (one signed op-group) | `MICHELSON_RPC`, `EVM_RPC`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `TZKT_EXPLORER`, `BUYER_MICHELSON_SK`, `OBJKT_MARKETPLACE`, `ASK_ID` | `PAY_SYMBOL` (USDC) |
-| `bridge:evm` | **EVM:** swap native XTZ → `PAY_SYMBOL` on the EVM account | `EVM_RPC`, `EVM_EXPLORER`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `EVM_SK` | `PAY_SYMBOL` (USDC), `IN_XTZ` (0.05) |
-| `example-buy:evm` | **EVM:** pay an ERC20 → buy the ask (approve+swap+fulfill) | `MICHELSON_RPC`, `EVM_RPC`, `EVM_EXPLORER`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `EVM_SK`, `OBJKT_MARKETPLACE`, `ASK_ID` | `PAY_SYMBOL` (USDC) |
+| `example-buy:michelson` | **Michelson:** pay an ERC20 → buy the ask (one signed op-group) | `MICHELSON_RPC`, `EVM_RPC`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `TZKT_EXPLORER`, `BUYER_MICHELSON_SK`, `OBJKT_MARKETPLACE`, `ASK_ID` | `PAY_SYMBOL` (USDC), `NFT_RECIPIENT` |
+| `bridge:evm` | **EVM:** swap `SRC_SYMBOL` → `DST_SYMBOL` on the EVM account | `EVM_RPC`, `EVM_EXPLORER`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `EVM_SK` | `SRC_SYMBOL` (XTZ), `DST_SYMBOL` (USDC), `IN_AMOUNT` (0.05), `RECEIVER` |
+| `bridge:michelson` | **Michelson:** swap `SRC_SYMBOL` → `DST_SYMBOL`, signed by the buyer | `MICHELSON_RPC`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `TZKT_EXPLORER`, `BUYER_MICHELSON_SK` | `SRC_SYMBOL` (USDC), `DST_SYMBOL` (XTZ), `IN_AMOUNT` (0.05), `RECEIVER` |
+| `example-buy:evm` | **EVM:** pay an ERC20 → buy the ask (approve+swap+fulfill) | `MICHELSON_RPC`, `EVM_RPC`, `EVM_EXPLORER`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `EVM_SK`, `OBJKT_MARKETPLACE`, `ASK_ID` | `PAY_SYMBOL` (USDC), `NFT_RECIPIENT` |
 
 Notes:
 - The FA2/objkt deployer is `BUYER_MICHELSON_SK` (holds no special role); `setup` signs mint/list as the seller.
 - `FREE_ROUTE_API_KEY` is the free-route API key (required).
 - **Atomicity:** the SDK's `evm.*` builders return a ready `EvmTxRequest[]` — a dApp sends it in one `wallet_sendCalls` (EIP-5792) for an atomic batch. These headless scripts have no wallet, so `evm/send.ts` sends the txs **sequentially** (functional check); it is not atomic.
+- **Sending to a different recipient (optional):**
+  - **buy** → `NFT_RECIPIENT` (a `tz1`/`KT1`): the NFT lands there via objkt v4 `%proxy_for`. To target an EVM account, use its `KT1` alias (`evmToMichelsonAlias`). Default: the signer (Michelson buyer / the EVM account's `KT1` alias).
+  - **swap** → `RECEIVER` (a `0x`): where the swapped output lands (getSwap `receiver`). Works for any input (native XTZ or ERC20) — verified on-chain. A native-XTZ output sent to a `tz1`'s alias auto-forwards to that `tz1`; sent to a plain EOA it stays on its EVM balance. Default: the signer's own address/alias.
 - Internal helpers (`env.ts`, `client.ts`, `send.ts`, `evm/fund.ts`) are not run directly.

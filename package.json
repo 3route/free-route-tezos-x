@@ -64,6 +64,7 @@
     "example-buy:michelson": "tsx scripts/michelson/example-buy.ts",
     "example-buy:evm": "tsx scripts/evm/example-buy.ts",
     "bridge:evm": "tsx scripts/evm/bridge.ts",
+    "bridge:michelson": "tsx scripts/michelson/bridge.ts",
     "addresses:michelson": "tsx scripts/michelson/addresses.ts",
     "addresses:evm": "tsx scripts/evm/addresses.ts",
     "compile:fa2": "ligo compile contract contracts/fa2_nft.mligo --michelson-format json -o contracts/fa2_nft.json",
