@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEvmApprove, buildCallMichelson, buildEvmSwap, encodeCallMichelson, forgeMichelson, EVM_GATEWAY } from '../../index.js';
-import { buildEvmFulfillAsk } from '../../objkt/evm.js';
+import { buildEvmApproveTransaction, buildCallMichelsonTransaction, buildEvmSwapTransaction, encodeCallMichelson, forgeMichelson, EVM_GATEWAY } from '../../index.js';
+import { buildEvmFulfillAskTransaction } from '../../objkt/evm.js';
 import type { Swap } from '../../core/free-route/index.js';
 import type { EvmAddress, Hex } from '../../core/primitives.js';
 
@@ -12,8 +12,8 @@ import type { EvmAddress, Hex } from '../../core/primitives.js';
 const USDC: EvmAddress = '0x39fD36e60A839DE4cB5DaE0E1009c0aa612Bfba1';
 const ROUTER: EvmAddress = '0x0000000000000000000000000000000000000001';
 
-test('buildEvmApprove: approve(address,uint256) — selector 0x095ea7b3, padded args, value 0', () => {
-  const tx = buildEvmApprove({ token: USDC, spender: ROUTER, amount: 1000n });
+test('buildEvmApproveTransaction: approve(address,uint256) — selector 0x095ea7b3, padded args, value 0', () => {
+  const tx = buildEvmApproveTransaction({ token: USDC, spender: ROUTER, amount: 1000n });
   assert.equal(tx.to, USDC);
   assert.equal(tx.value, 0n);
   assert.equal(
@@ -41,21 +41,21 @@ test('forgeMichelson: strips the 0x05 PACK tag (forged value only)', () => {
   assert.ok(!forged.startsWith('0x05'));
 });
 
-test('buildCallMichelson: targets the EVM→Michelson gateway and forwards mutez as wei', () => {
-  const tx = buildCallMichelson({ destination: 'KT1', entrypoint: 'ep', data: '0x00' as Hex, valueMutez: 1_500_000n, evmGateway: EVM_GATEWAY });
+test('buildCallMichelsonTransaction: targets the EVM→Michelson gateway and forwards mutez as wei', () => {
+  const tx = buildCallMichelsonTransaction({ destination: 'KT1', entrypoint: 'ep', data: '0x00' as Hex, valueMutez: 1_500_000n, evmGateway: EVM_GATEWAY });
   assert.equal(tx.to, EVM_GATEWAY);
   assert.equal(tx.value, 1_500_000_000_000_000_000n); // 1.5 XTZ in wei
   assert.equal(tx.data, encodeCallMichelson('KT1', 'ep', '0x00'));
 });
 
-test('buildCallMichelson: respects a custom gateway and defaults value to 0', () => {
-  const tx = buildCallMichelson({ destination: 'KT1', entrypoint: 'ep', data: '0x00' as Hex, evmGateway: ROUTER });
+test('buildCallMichelsonTransaction: respects a custom gateway and defaults value to 0', () => {
+  const tx = buildCallMichelsonTransaction({ destination: 'KT1', entrypoint: 'ep', data: '0x00' as Hex, evmGateway: ROUTER });
   assert.equal(tx.to, ROUTER);
   assert.equal(tx.value, 0n);
 });
 
-test('buildEvmFulfillAsk: golden tx (gateway, value, callMichelson(fulfill_ask) data)', () => {
-  const tx = buildEvmFulfillAsk({
+test('buildEvmFulfillAskTransaction: golden tx (gateway, value, callMichelson(fulfill_ask) data)', () => {
+  const tx = buildEvmFulfillAskTransaction({
     marketplace: 'KT1Mqx5meQbdw8gFa9JK9ozzKnYAvHbpFwTm',
     askId: 42n,
     editions: 1,
@@ -78,8 +78,8 @@ test('buildEvmFulfillAsk: golden tx (gateway, value, callMichelson(fulfill_ask) 
   );
 });
 
-test('buildEvmFulfillAsk: evmGateway override targets the given gateway', () => {
-  const tx = buildEvmFulfillAsk({ marketplace: 'KT1Mqx5meQbdw8gFa9JK9ozzKnYAvHbpFwTm', askId: 42n, editions: 1, amountMutez: 1_500_000n, evmGateway: ROUTER });
+test('buildEvmFulfillAskTransaction: evmGateway override targets the given gateway', () => {
+  const tx = buildEvmFulfillAskTransaction({ marketplace: 'KT1Mqx5meQbdw8gFa9JK9ozzKnYAvHbpFwTm', askId: 42n, editions: 1, amountMutez: 1_500_000n, evmGateway: ROUTER });
   assert.equal(tx.to, ROUTER);
 });
 
@@ -93,22 +93,22 @@ const swapFixture = (srcAmount: bigint, value = 0n): Swap => ({
 
 const ZERO: EvmAddress = '0x0000000000000000000000000000000000000000'; // native XTZ
 
-test('buildEvmSwap: native XTZ → the swap tx alone, passing through to/data/value (no approve)', () => {
-  const txs = buildEvmSwap({ swap: swapFixture(0n, 5_000_000_000_000_000_000n), srcAddress: ZERO });
+test('buildEvmSwapTransaction: native XTZ → the swap tx alone, passing through to/data/value (no approve)', () => {
+  const txs = buildEvmSwapTransaction({ swap: swapFixture(0n, 5_000_000_000_000_000_000n), srcAddress: ZERO });
   assert.equal(txs.length, 1);
   assert.deepEqual(txs[0], { to: ROUTER, data: '0xdeadbeef', value: 5_000_000_000_000_000_000n }); // msg.value carries the XTZ
 });
 
-test('buildEvmSwap: ERC20 resetThenApprove (default) → [reset, approve, swap]', () => {
-  const txs = buildEvmSwap({ swap: swapFixture(500n), srcAddress: USDC });
+test('buildEvmSwapTransaction: ERC20 resetThenApprove (default) → [reset, approve, swap]', () => {
+  const txs = buildEvmSwapTransaction({ swap: swapFixture(500n), srcAddress: USDC });
   assert.equal(txs.length, 3);
   assert.equal(txs[0]!.to, USDC); // reset allowance to 0
-  assert.equal(txs[0]!.data, buildEvmApprove({ token: USDC, spender: ROUTER, amount: 0n }).data);
-  assert.equal(txs[1]!.data, buildEvmApprove({ token: USDC, spender: ROUTER, amount: 500n }).data);
+  assert.equal(txs[0]!.data, buildEvmApproveTransaction({ token: USDC, spender: ROUTER, amount: 0n }).data);
+  assert.equal(txs[1]!.data, buildEvmApproveTransaction({ token: USDC, spender: ROUTER, amount: 500n }).data);
   assert.equal(txs[2]!.data, '0xdeadbeef'); // swap
 });
 
-test('buildEvmSwap: ERC20 approve mode → [approve, swap]; none → [swap]', () => {
-  assert.equal(buildEvmSwap({ swap: swapFixture(500n), srcAddress: USDC, approval: 'approve' }).length, 2);
-  assert.equal(buildEvmSwap({ swap: swapFixture(500n), srcAddress: USDC, approval: 'none' }).length, 1);
+test('buildEvmSwapTransaction: ERC20 approve mode → [approve, swap]; none → [swap]', () => {
+  assert.equal(buildEvmSwapTransaction({ swap: swapFixture(500n), srcAddress: USDC, approval: 'approve' }).length, 2);
+  assert.equal(buildEvmSwapTransaction({ swap: swapFixture(500n), srcAddress: USDC, approval: 'none' }).length, 1);
 });

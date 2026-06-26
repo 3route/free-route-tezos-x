@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { OpKind } from '@taquito/taquito';
 import type { ParamsWithKind } from '@taquito/taquito';
 import type { Swap } from '../../core/free-route/index.js';
-import { buildSwapOperation } from '../../michelson/operations/swap.js';
+import { buildMichelsonSwapOperation } from '../../michelson/operations/swap.js';
 import { callEvmGas } from '../../michelson/call-evm-limits.js';
 import { decodeUint256 } from '../../core/evm.js';
 import { XTZ } from '../../core/units.js';
 
-type Tx = Extract<ParamsWithKind, { kind: OpKind.TRANSACTION }>; // the transaction variant buildSwapOperation emits
+type Tx = Extract<ParamsWithKind, { kind: OpKind.TRANSACTION }>; // the transaction variant buildMichelsonSwapOperation emits
 
 const GATEWAY = 'KT18oDJJKXMKhfE1bSuAPGp92pYcwVDiqsPw';
 const ROUTER = '0x25896fd23d41c1d9F8779afc0D8AA3f52ca743Dc';
@@ -34,7 +34,7 @@ const limitsOf = (op: Tx) => ({ gasLimit: op.gasLimit, storageLimit: op.storageL
 
 test("approval 'none' -> [swap] only; an ERC20 input forwards no XTZ value", () => {
   // non-zero tx.value must be ignored for an ERC20 input (value is only for native XTZ)
-  const ops = buildSwapOperation({ swap: swapWith(604_000n, 100n, 5_000_000_000_000_000_000n), ...erc20Opts, approval: 'none' });
+  const ops = buildMichelsonSwapOperation({ swap: swapWith(604_000n, 100n, 5_000_000_000_000_000_000n), ...erc20Opts, approval: 'none' });
   assert.equal(ops.length, 1);
   const [swap] = ops as [Tx];
   assert.ok(isSwap(swap));
@@ -42,7 +42,7 @@ test("approval 'none' -> [swap] only; an ERC20 input forwards no XTZ value", () 
 });
 
 test("approval 'approve' -> [approve(srcAmount), swap]", () => {
-  const ops = buildSwapOperation({ swap: swapWith(604_000n, 250n), ...erc20Opts, approval: 'approve' });
+  const ops = buildMichelsonSwapOperation({ swap: swapWith(604_000n, 250n), ...erc20Opts, approval: 'approve' });
   assert.equal(ops.length, 2);
   const [approve, swap] = ops as [Tx, Tx];
   assert.ok(isApprove(approve) && isSwap(swap));
@@ -50,7 +50,7 @@ test("approval 'approve' -> [approve(srcAmount), swap]", () => {
 });
 
 test("approval 'resetThenApprove' (default) -> [reset(0), approve(srcAmount), swap]", () => {
-  const ops = buildSwapOperation({ swap: swapWith(604_000n, 250n), ...erc20Opts }); // default mode
+  const ops = buildMichelsonSwapOperation({ swap: swapWith(604_000n, 250n), ...erc20Opts }); // default mode
   assert.equal(ops.length, 3);
   const [reset, approve, swap] = ops as [Tx, Tx, Tx];
   assert.ok(isApprove(reset) && isApprove(approve) && isSwap(swap));
@@ -59,7 +59,7 @@ test("approval 'resetThenApprove' (default) -> [reset(0), approve(srcAmount), sw
 });
 
 test('native-XTZ swap -> [swap] only (no approve) with value forwarded as mutez', () => {
-  const ops = buildSwapOperation({ swap: swapWith(304_000n, 100n, 5_000_000_000_000_000_000n), michelsonGateway: GATEWAY, srcAddress: XTZ.address });
+  const ops = buildMichelsonSwapOperation({ swap: swapWith(304_000n, 100n, 5_000_000_000_000_000_000n), michelsonGateway: GATEWAY, srcAddress: XTZ.address });
   assert.equal(ops.length, 1);
   const [swap] = ops as [Tx];
   assert.equal(swap.amount, 5_000_000); // 5 XTZ wei -> mutez
@@ -67,10 +67,10 @@ test('native-XTZ swap -> [swap] only (no approve) with value forwarded as mutez'
 });
 
 test('swap op carries callEvmGas.fromEvmEstimate(tx.gas); opts.limits overrides', () => {
-  const [def] = buildSwapOperation({ swap: swapWith(604_000n), ...erc20Opts, approval: 'none' }) as [Tx];
+  const [def] = buildMichelsonSwapOperation({ swap: swapWith(604_000n), ...erc20Opts, approval: 'none' }) as [Tx];
   assert.deepEqual(limitsOf(def), callEvmGas.fromEvmEstimate(604_000n));
 
   const override = callEvmGas.fixed(42_000);
-  const [ovr] = buildSwapOperation({ swap: swapWith(604_000n), ...erc20Opts, approval: 'none', limits: override }) as [Tx];
+  const [ovr] = buildMichelsonSwapOperation({ swap: swapWith(604_000n), ...erc20Opts, approval: 'none', limits: override }) as [Tx];
   assert.deepEqual(limitsOf(ovr), override);
 });

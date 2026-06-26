@@ -5,7 +5,7 @@ export type { FetchLike } from './http.js'; // injectable-fetch type used in cli
 export * from './units.js';
 export * from './address.js';
 export * from './free-route/index.js';
-export * from './slippage.js';
+export { MAX_SLIPPAGE_BPS, targetForMinOut } from './slippage.js';
 export * from './approval.js';
 export * from './networks.js';
-export * from './facade.js';
+export type { FreeRouteCoreOptions } from './facade.js';

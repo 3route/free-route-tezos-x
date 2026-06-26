@@ -84,7 +84,7 @@ console.log(`need ${fmtPay(srcAmount)} → approval='${approval}'`);
 
 // 3. build the swap ops for that mode, compose with the marketplace fulfill, sign once.
 const swapOps = freeRoute.michelson.buildSwapOperation({ swap, srcAddress: payToken.address, approval });
-const fulfillOp = objkt.buildFulfillAsk({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez });
+const fulfillOp = objkt.buildMichelsonFulfillAskOperation({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez });
 const group = buildBatchTransaction(swapOps, fulfillOp);
 
 // describe each op in the atomic group. Order matches `group`:

@@ -21,5 +21,5 @@ export async function ensureEvmToken(fr: FreeRouteTezosX, token: FreeRouteToken,
   // exact-out: get (2×needed − have) token, native XTZ in (carries msg.value, no approve). The EVM account pays.
   const swap = await fr.getSwap({ src: XTZ.address, dst: token.address, amount: needed * 2n - have, isExactOut: true, from, receiver: from, slippageBps: 300 });
   console.log(`  fund ${fmt(needed * 2n - have)} via XTZ swap (router ${swap.tx.to}), EVM-signed:`);
-  await sendSequential(fr.evm.buildSwap({ swap, srcAddress: XTZ.address }), EVM_EXPLORER);
+  await sendSequential(fr.evm.buildSwapTransaction({ swap, srcAddress: XTZ.address }), EVM_EXPLORER);
 }

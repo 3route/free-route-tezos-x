@@ -22,7 +22,7 @@ console.log(`from ${from} · ${fmt(before)} before`);
 
 // exact-in: native XTZ -> PAY_SYMBOL. Native input carries the XTZ as msg.value, so no approve.
 const swap = await fr.getSwap({ src: XTZ.address, dst: token.address, amount: toEvmUnits(BigInt(Math.round(IN_XTZ * 1e6)), XTZ.address), isExactOut: false, from });
-const txs = fr.evm.buildSwap({ swap, srcAddress: XTZ.address });
+const txs = fr.evm.buildSwapTransaction({ swap, srcAddress: XTZ.address });
 console.log(`swap ${IN_XTZ} XTZ -> ${PAY_SYMBOL} via router ${swap.tx.to} · sending ${txs.length} tx(s)...`);
 await sendSequential(txs, EVM_EXPLORER);
 

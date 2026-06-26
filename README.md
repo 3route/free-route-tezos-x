@@ -81,7 +81,7 @@ const swapOps = freeRoute.michelson.buildSwapOperation({
   srcAddress: payToken.address,
   approval,
 });
-const fulfill = objkt.buildFulfillAsk({
+const fulfill = objkt.buildMichelsonFulfillAskOperation({
   marketplace: OBJKT_MARKETPLACE,
   askId: '1',
   editions: 1,
@@ -142,12 +142,12 @@ const approval = await resolveApproval({
 });
 
 // approve(s) + swap, composed with the marketplace fulfill (via callMichelson) -> one EvmTxRequest[] batch
-const swapTxs = freeRoute.evm.buildSwap({
+const swapTxs = freeRoute.evm.buildSwapTransaction({
   swap,
   srcAddress: payToken.address,
   approval,
 });
-const fulfill = objkt.buildEvmFulfillAsk({
+const fulfill = objkt.buildEvmFulfillAskTransaction({
   marketplace: OBJKT_MARKETPLACE,
   askId: '1',
   editions: 1,
@@ -173,13 +173,14 @@ All facades share the free-route reads (`getTokens` / `getQuote` / `getSwap`) an
 
 ## Keep your API key server-side
 
-The Quick start builds the client in one place for brevity. To keep a hosted free-route API key off the browser, split the read surface: run a keyed `FreeRouteClient` on your server behind thin proxy routes, and implement the `FreeRouteApi` interface on the client against those routes. `serialize*` / `parse*` carry quotes and swaps across the JSON boundary without losing their bigint fields (token reads are plain JSON — no `serialize` step).
+The Quick start builds the client in one place for brevity. To keep a hosted free-route API key off the browser, split the read surface: run a keyed `FreeRouteClient` on your server behind thin proxy routes, and implement the `FreeRouteApi` interface on the client against those routes. `serialize*` / `parse*` carry quotes and swaps across the JSON boundary without losing their bigint fields, and `serialize*Query` / `parse*Query` do the same for the request params (`parse*Query` also validates untrusted input). Token reads are plain JSON — no codec step.
 
 **Server** — the API key lives here, never in the browser:
 
 ```ts
-import { FreeRouteClient, tezosXMainnet, serializeQuote, serializeSwap } from '@baking-bad/free-route-tezos-x';
-import type { QuoteQuery, SwapQuery } from '@baking-bad/free-route-tezos-x';
+import {
+  FreeRouteClient, tezosXMainnet, parseQuoteQuery, parseSwapQuery, serializeQuote, serializeSwap,
+} from '@baking-bad/free-route-tezos-x';
 
 const freeRoute = new FreeRouteClient({
   baseUrl: FREE_ROUTE_API,
@@ -187,54 +188,71 @@ const freeRoute = new FreeRouteClient({
   apiKey: FREE_ROUTE_API_KEY,
 });
 
-// behind your own routes (Next, Express, …); serialize* makes the model JSON-safe (bigint -> string)
+// behind your own routes (Next, Express, …); parse* validates the untrusted query, serialize* makes the model JSON-safe (bigint -> string)
 export const routes = {
   tokens: () => freeRoute.getTokens(),
-  quote: async (q: QuoteQuery) => serializeQuote(await freeRoute.getQuote(q)),
-  swap: async (q: SwapQuery) => serializeSwap(await freeRoute.getSwap(q)),
+  quote: async (params: URLSearchParams) => serializeQuote(await freeRoute.getQuote(parseQuoteQuery(params))),
+  swap: async (params: URLSearchParams) => serializeSwap(await freeRoute.getSwap(parseSwapQuery(params))),
 };
 ```
 
 **Client** — talks to your own endpoints (no key), parses DTOs back into typed models:
 
 ```ts
-import { parseQuote, parseSwap } from '@baking-bad/free-route-tezos-x';
+import { parseQuote, parseSwap, serializeQuoteQuery, serializeSwapQuery } from '@baking-bad/free-route-tezos-x';
 import type {
-  FreeRouteApi, FreeRouteToken, QuoteQuery, QuoteResponseDto, SwapResponseDto,
+  FreeRouteApi, FreeRouteToken, QuoteResponseDto, SwapResponseDto,
 } from '@baking-bad/free-route-tezos-x';
 
-// your transport to the server routes above (`toParams` is your own query → querystring helper)
-const get = <T>(path: string, query?: QuoteQuery): Promise<T> =>
-  fetch(`/free-route/${path}` + (query ? `?${toParams(query)}` : '')).then((r) => r.json()) as Promise<T>;
+// your transport to the server routes above
+const get = <T>(path: string, params?: URLSearchParams): Promise<T> =>
+  fetch(`/free-route/${path}` + (params ? `?${params}` : '')).then((r) => r.json()) as Promise<T>;
 
-// implement FreeRouteApi over your proxy — the rest of your app uses it like a direct client
+// implement FreeRouteApi over your proxy — serialize the query, parse the response (both via the SDK codec)
 export const freeRoute: FreeRouteApi = {
   getTokens: () => get<FreeRouteToken[]>('tokens'),
-  getQuote: async (q) => parseQuote(await get<QuoteResponseDto>('quote', q)),
-  getSwap: async (q) => parseSwap(await get<SwapResponseDto>('swap', q)),
+  getQuote: async (q) => parseQuote(await get<QuoteResponseDto>('quote', serializeQuoteQuery(q))),
+  getSwap: async (q) => parseSwap(await get<SwapResponseDto>('swap', serializeSwapQuery(q))),
 };
+
+// ── elsewhere in your app (browser): build ops off the keyless `freeRoute` above + a network-keyed
+//    builder — the builder needs only the gateway, so no API key leaves the server. ──
+import { createMichelsonOpsBuilder, tezosXMainnet } from '@baking-bad/free-route-tezos-x';
+
+const michelson = createMichelsonOpsBuilder(tezosXMainnet.michelsonGateway); // pure builder, runs anywhere
+
+const swap = await freeRoute.getSwap({ src, dst, amount, isExactOut: true, from, receiver });
+const swapOps = michelson.buildSwapOperation({ swap, srcAddress: src });
+// sign swapOps with your Taquito wallet (or compose with a marketplace op — see Quick start)
 ```
 
 The [demo dApp](https://github.com/3route/free-route-tezos-x-example) wires exactly this — Next.js route handlers plus a browser shim.
 
 ## API
 
-| Export | What |
-|---|---|
-| `FreeRouteTezosX` / `…Michelson` / `…Evm` | facades: free-route reads + builders, pre-wired for the network. Root has `.michelson` + `.evm`; the side facades have one. |
-| `FreeRouteClient` | low-level HTTP client — free-route reads only; prefer a facade, which also builds ops |
-| `freeRoute.michelson.buildSwapOperation` / `buildErc20Approve` / `buildCallEvm` | Michelson ops (`ParamsWithKind`) — sign with Taquito |
-| `freeRoute.evm.buildSwap` / `buildApprove` / `buildCallMichelson` | EVM tx requests (`EvmTxRequest`) — send with an EVM wallet |
-| `objkt.buildFulfillAsk` / `objkt.buildEvmFulfillAsk` | objkt v4 `fulfill_ask` — Michelson op / EVM tx |
-| `resolveApproval` / `readAllowance` | read an ERC20 allowance and pick the minimal safe `ApprovalMode` |
-| `buildBatchTransaction` | flatten Michelson ops into one atomic group |
-| `forgeMichelson` | forge a Micheline value for `callMichelson` data (EVM side) |
-| `targetForMinOut` | gross up an exact-out target so the post-slippage floor covers a hard minimum |
-| `michelsonToEvmAlias` / `evmToMichelsonAlias` / `aliasOf` | map an address to its alias on the other runtime (tz1 → 0x, 0x → KT1, or auto-detect) |
-| `toEvmUnits` / `fromEvmUnits`, `XTZ`, `XTZ_ADDRESS` | XTZ mutez ⇄ wei + the native-XTZ token |
-| `tezosXMainnet` / `tezosXPreviewnet`, `EVM_GATEWAY` / `MICHELSON_GATEWAY` | network presets (chainId + both gateways) and the fixed cross-runtime gateway addresses (same on every network) |
+Three tiers for building ops — pick one and stay there:
 
-`michelson.*` builders return Taquito `ParamsWithKind`; `evm.*` builders return `EvmTxRequest` — you choose how to sign.
+1. **Facade** (monolith) — `FreeRouteTezosX` bundles the free-route reads and both builder sets, pre-wired to the network. This is the Quick start; use it when one place can hold the API key.
+2. **Client + ops builder** (client/server split) — `FreeRouteClient` does the keyed reads on your server; `createMichelsonOpsBuilder(network.michelsonGateway)` / `createEvmOpsBuilder(network.evmGateway)` build ops anywhere, keyless. See [Keep your API key server-side](#keep-your-api-key-server-side).
+3. **Standalone builders** (low-level) — `buildMichelsonSwapOperation` / `buildEvmSwapTransaction` / `buildCallMichelsonTransaction` … are the plain functions the two tiers above wrap; the factory/facade only pre-inject the gateway and drop the chain prefix (`buildEvmSwapTransaction` → `evm.buildSwapTransaction`). Reach for them to compose by hand or against a custom gateway.
+
+| Export | Tier | What |
+|---|---|---|
+| `FreeRouteTezosX` / `…Michelson` / `…Evm` | facade | free-route reads + builders, pre-wired for the network. Root has `.michelson` + `.evm`; the side facades have one. |
+| `FreeRouteClient` | split | keyed HTTP client — free-route reads only (`getTokens` / `getQuote` / `getSwap`) |
+| `createMichelsonOpsBuilder` / `createEvmOpsBuilder` | split | gateway-bound builder set — keyless, pairs with `FreeRouteClient` |
+| `buildMichelsonSwapOperation` / `buildMichelsonApproveOperation` / `buildCallEvmOperation` | low-level | Michelson ops (`ParamsWithKind`) — sign with Taquito |
+| `buildEvmSwapTransaction` / `buildEvmApproveTransaction` / `buildCallMichelsonTransaction` | low-level | EVM tx requests (`EvmTxRequest`) — send with an EVM wallet; `buildCallMichelsonTransaction` takes the gateway explicitly |
+| `objkt.buildMichelsonFulfillAskOperation` / `objkt.buildEvmFulfillAskTransaction` | helper | objkt v4 `fulfill_ask` — Michelson op / EVM tx |
+| `resolveApproval` / `readAllowance` | helper | read an ERC20 allowance and pick the minimal safe `ApprovalMode` |
+| `buildBatchTransaction` | helper | flatten Michelson ops into one atomic group |
+| `forgeMichelson` | helper | forge a Micheline value for `callMichelson` data (EVM side) |
+| `targetForMinOut` | helper | gross up an exact-out target so the post-slippage floor covers a hard minimum |
+| `michelsonToEvmAlias` / `evmToMichelsonAlias` / `aliasOf` | helper | map an address to its alias on the other runtime (tz1 → 0x, 0x → KT1, or auto-detect) |
+| `toEvmUnits` / `fromEvmUnits`, `XTZ`, `XTZ_ADDRESS` | helper | XTZ mutez ⇄ wei + the native-XTZ token |
+| `tezosXMainnet` / `tezosXPreviewnet`, `EVM_GATEWAY` / `MICHELSON_GATEWAY` | const | network presets (chainId + both gateways) and the fixed cross-runtime gateway addresses (same on every network) |
+
+Michelson builders return Taquito `ParamsWithKind` (an **operation**); EVM builders return `EvmTxRequest` (a **transaction**) — hence the `…Operation` / `…Transaction` suffix. The facade exposes the same builders namespaced, dropping the chain prefix (`freeRoute.michelson.buildSwapOperation`, `freeRoute.evm.buildSwapTransaction`), with the gateway already wired in.
 
 ## Demo / scripts
 

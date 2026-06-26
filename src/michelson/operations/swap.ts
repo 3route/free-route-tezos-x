@@ -1,6 +1,6 @@
 import type { ParamsWithKind } from '@taquito/taquito';
-import { buildCallEvm } from './call-evm.js';
-import { buildErc20Approve } from './approve.js';
+import { buildCallEvmOperation } from './call-evm.js';
+import { buildMichelsonApproveOperation } from './approve.js';
 import { callEvmGas } from '../call-evm-limits.js';
 import { isXtz, xtzWeiToMutez } from '../../core/units.js';
 import type { Swap } from '../../core/free-route/models.js';
@@ -11,7 +11,7 @@ import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../../core/pri
 const SWAP_SIG =
   'swap(uint256,uint256,address,uint256,uint256,(address[],uint256),(address,uint256)[],(address,uint256,uint256))';
 
-export interface BuildSwapOperationOptions {
+export interface BuildMichelsonSwapOperationOptions {
   swap: Swap; // a free-route /swap response
   michelsonGateway: MichelsonAddress; // Michelson→EVM gateway (call_evm)
   srcAddress: EvmAddress; // input token
@@ -23,10 +23,10 @@ export interface BuildSwapOperationOptions {
  * Turn a free-route /swap response into ready-to-sign Tezos ops, no network. ERC20 input → approve(s) + swap per
  * {@link ApprovalMode}; native-XTZ input → a single swap op carrying the XTZ as msg.value.
  */
-export function buildSwapOperation(opts: BuildSwapOperationOptions): ParamsWithKind[] {
+export function buildMichelsonSwapOperation(opts: BuildMichelsonSwapOperationOptions): ParamsWithKind[] {
   const native = isXtz(opts.srcAddress);
   const swap = opts.swap;
-  const swapOp = buildCallEvm({
+  const swapOp = buildCallEvmOperation({
     michelsonGateway: opts.michelsonGateway,
     dest: swap.tx.to,
     sig: SWAP_SIG,
@@ -38,7 +38,7 @@ export function buildSwapOperation(opts: BuildSwapOperationOptions): ParamsWithK
   if (native || approval === 'none') 
     return [swapOp]; // native XTZ needs no approve; 'none' = caller manages it
   
-  const approve = buildErc20Approve({ 
+  const approve = buildMichelsonApproveOperation({ 
     michelsonGateway: opts.michelsonGateway, 
     token: opts.srcAddress, 
     spender: swap.tx.to, 
@@ -46,6 +46,6 @@ export function buildSwapOperation(opts: BuildSwapOperationOptions): ParamsWithK
   });
   
   return approval === 'resetThenApprove'
-    ? [buildErc20Approve({ michelsonGateway: opts.michelsonGateway, token: opts.srcAddress, spender: swap.tx.to, amount: 0n }), approve, swapOp]
+    ? [buildMichelsonApproveOperation({ michelsonGateway: opts.michelsonGateway, token: opts.srcAddress, spender: swap.tx.to, amount: 0n }), approve, swapOp]
     : [approve, swapOp];
 }

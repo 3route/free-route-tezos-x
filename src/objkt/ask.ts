@@ -13,8 +13,8 @@ export interface FulfillAskOptions {
   limits?: OpLimits; // Michelson op only: pin to skip estimation; omit to let Taquito estimate
 }
 
-// objkt v4 fulfill_ask parameter — shared by the Michelson op (buildFulfillAsk) and the EVM callMichelson
-// tx (buildEvmFulfillAsk). Uses michelson-encoder only; the MichelsonData type import is erased at runtime,
+// objkt v4 fulfill_ask parameter — shared by the Michelson op (buildMichelsonFulfillAskOperation) and the EVM callMichelson
+// tx (buildEvmFulfillAskTransaction). Uses michelson-encoder only; the MichelsonData type import is erased at runtime,
 // so this file pulls neither @taquito/taquito nor @taquito/michel-codec.
 export const FULFILL_ASK_TYPE = {
   prim: 'pair',

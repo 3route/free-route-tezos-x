@@ -1,10 +1,10 @@
 import { isXtz } from '../../core/units.js';
-import { buildEvmApprove } from './approve.js';
+import { buildEvmApproveTransaction } from './approve.js';
 import type { Swap } from '../../core/free-route/models.js';
 import type { ApprovalMode } from '../../core/approval.js';
 import type { EvmAddress, EvmTxRequest } from '../../core/primitives.js';
 
-export interface BuildEvmSwapOptions {
+export interface BuildEvmSwapTransactionOptions {
   swap: Swap; // a free-route /swap response — its `tx` IS the native EVM swap transaction
   srcAddress: EvmAddress; // input token
   approval?: ApprovalMode; // default 'resetThenApprove'
@@ -15,7 +15,7 @@ export interface BuildEvmSwapOptions {
  * approve(s) + swap per {@link ApprovalMode}; native-XTZ input → the single swap tx carrying XTZ as value.
  * No gas/fees here — the wallet estimates them.
  */
-export function buildEvmSwap(o: BuildEvmSwapOptions): EvmTxRequest[] {
+export function buildEvmSwapTransaction(o: BuildEvmSwapTransactionOptions): EvmTxRequest[] {
   const swapTx: EvmTxRequest = { to: o.swap.tx.to, data: o.swap.tx.data, value: o.swap.tx.value };
   if (isXtz(o.srcAddress)) 
     return [swapTx]; // native XTZ carries msg.value, no approve
@@ -24,8 +24,8 @@ export function buildEvmSwap(o: BuildEvmSwapOptions): EvmTxRequest[] {
   if (approval === 'none') 
     return [swapTx];
   
-  const approve = buildEvmApprove({ token: o.srcAddress, spender: o.swap.tx.to, amount: o.swap.srcAmount });
+  const approve = buildEvmApproveTransaction({ token: o.srcAddress, spender: o.swap.tx.to, amount: o.swap.srcAmount });
   return approval === 'resetThenApprove'
-    ? [buildEvmApprove({ token: o.srcAddress, spender: o.swap.tx.to, amount: 0n }), approve, swapTx]
+    ? [buildEvmApproveTransaction({ token: o.srcAddress, spender: o.swap.tx.to, amount: 0n }), approve, swapTx]
     : [approve, swapTx];
 }

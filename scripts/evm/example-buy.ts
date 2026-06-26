@@ -39,10 +39,10 @@ const swap = await fr.getSwap({
 
 // 2. read the on-chain allowance (account -> router) -> pick the minimal safe approval mode.
 const approval = await resolveApproval({ evmRpc: EVM_RPC, token: payToken.address, owner: from, spender: swap.tx.to, amount: swap.srcAmount });
-const swapTxs = fr.evm.buildSwap({ swap, srcAddress: payToken.address, approval }); // [reset?, approve, swapTx]
+const swapTxs = fr.evm.buildSwapTransaction({ swap, srcAddress: payToken.address, approval }); // [reset?, approve, swapTx]
 
 // 3. fulfill the ask from the EVM side (callMichelson; the swapped XTZ funds msg.value; NFT -> alias).
-const fulfillTx = objkt.buildEvmFulfillAsk({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez });
+const fulfillTx = objkt.buildEvmFulfillAskTransaction({ marketplace: OBJKT_MARKETPLACE, askId: ASK_ID, editions: 1, amountMutez: priceMutez });
 
 const batch = [...swapTxs, fulfillTx];
 

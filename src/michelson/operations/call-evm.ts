@@ -13,7 +13,7 @@ const callEvm = new ParameterSchema({
   ],
 });
 
-export interface BuildCallEvmOptions {
+export interface BuildCallEvmOperationOptions {
   michelsonGateway: MichelsonAddress;
   dest: EvmAddress;
   sig: string; // e.g. 'approve(address,uint256)'
@@ -28,7 +28,7 @@ export interface BuildCallEvmOptions {
  * (sized via {@link callEvmGas}) to fully specify the op so no estimation runs — required because estimation
  * undershoots the cross-runtime call; omit `limits` only to let Taquito estimate (inaccurate today, see call-evm-limits).
  */
-export const buildCallEvm = (o: BuildCallEvmOptions): ParamsWithKind => ({
+export const buildCallEvmOperation = (o: BuildCallEvmOperationOptions): ParamsWithKind => ({
   kind: OpKind.TRANSACTION,
   to: o.michelsonGateway,
   amount: Number(o.valueMutez ?? 0n),

@@ -21,7 +21,7 @@ export const encodeCallMichelson = (destination: string, entrypoint: string, dat
   return ('0x' + selector + offsets.map(word).join('') + parts.join('')) as Hex;
 };
 
-export interface BuildCallMichelsonOptions {
+export interface BuildCallMichelsonTransactionOptions {
   destination: MichelsonAddress; // KT1 target contract (the precompile calls contracts, not implicit accounts)
   entrypoint: string;
   data: Hex; // forged Michelson value (no 0x05 PACK tag) — see forgeMichelson
@@ -31,9 +31,9 @@ export interface BuildCallMichelsonOptions {
 
 /**
  * A native EVM tx invoking `destination.entrypoint(data)` on the Michelson side via the EVM→Michelson
- * gateway precompile (msg.sender on Michelson = the EVM account's KT1 alias). The mirror of `buildCallEvm`.
+ * gateway precompile (msg.sender on Michelson = the EVM account's KT1 alias). The mirror of `buildCallEvmOperation`.
  */
-export const buildCallMichelson = (o: BuildCallMichelsonOptions): EvmTxRequest => ({
+export const buildCallMichelsonTransaction = (o: BuildCallMichelsonTransactionOptions): EvmTxRequest => ({
   to: o.evmGateway,
   data: encodeCallMichelson(o.destination, o.entrypoint, o.data),
   value: xtzMutezToWei(o.valueMutez ?? 0n),

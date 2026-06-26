@@ -6,7 +6,7 @@ import type { FulfillAskOptions } from './ask.js';
 export type { FulfillAskOptions } from './ask.js';
 
 /** objkt v4 `fulfill_ask` Michelson op (buy a listed ask); amountMutez is the op value. */
-export const buildFulfillAsk = (p: FulfillAskOptions): ParamsWithKind => ({
+export const buildMichelsonFulfillAskOperation = (p: FulfillAskOptions): ParamsWithKind => ({
   kind: OpKind.TRANSACTION,
   to: p.marketplace,
   amount: Number(p.amountMutez),

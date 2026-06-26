@@ -29,7 +29,7 @@ export interface FreeRouteClientOptions {
   fetch?: FetchLike; // default globalThis.fetch
 }
 
-export function authHeaders(apiKey: string): Record<string, string> {
+function authHeaders(apiKey: string): Record<string, string> {
   return { Authorization: `Basic ${apiKey}` };
 }
 

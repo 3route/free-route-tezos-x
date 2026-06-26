@@ -1,5 +1,5 @@
 import type { ParamsWithKind } from '@taquito/taquito';
-import { buildCallEvm } from './call-evm.js';
+import { buildCallEvmOperation } from './call-evm.js';
 import { encodeArgs } from '../../core/evm.js';
 import { callEvmGas } from '../call-evm-limits.js';
 import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../../core/primitives.js';
@@ -7,7 +7,7 @@ import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../../core/pri
 const SIG_APPROVE = 'approve(address,uint256)';
 const APPROVE_GAS = 12_000; // ERC20 approve via call_evm: measured floor ~3.5k, pinned with headroom
 
-export interface BuildErc20ApproveOptions {
+export interface BuildMichelsonApproveOperationOptions {
   michelsonGateway: MichelsonAddress;
   token: EvmAddress;
   spender: EvmAddress;
@@ -16,8 +16,8 @@ export interface BuildErc20ApproveOptions {
 }
 
 /** ERC20 `approve(spender, amount)` via call_evm — lets `spender` pull up to `amount` of `token` from the alias. */
-export const buildErc20Approve = (o: BuildErc20ApproveOptions): ParamsWithKind =>
-  buildCallEvm({
+export const buildMichelsonApproveOperation = (o: BuildMichelsonApproveOperationOptions): ParamsWithKind =>
+  buildCallEvmOperation({
     michelsonGateway: o.michelsonGateway,
     dest: o.token,
     sig: SIG_APPROVE,
