@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-06-29
+
+> Tooling & docs only — the published library code (`dist/`) is unchanged from 0.3.0.
+
 ### Added
 
 - `AGENTS.md` — guidance for AI coding agents (commands, layout, the two-runtime model, conventions, gotchas), with
@@ -84,7 +88,8 @@ Initial published release. Turns [free-route](https://free-route.io) swaps on Te
 - ESM-only package (Node ≥ 20); `@taquito/*` as peer deps; hand-rolled EVM/ABI utils on `@noble/hashes` (no ethers).
   Unit tests, README, and a tag-triggered npm publish workflow.
 
-[Unreleased]: https://github.com/3route/free-route-tezos-x/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/3route/free-route-tezos-x/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/3route/free-route-tezos-x/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/3route/free-route-tezos-x/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/3route/free-route-tezos-x/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/3route/free-route-tezos-x/compare/v0.2.0...v0.2.1
