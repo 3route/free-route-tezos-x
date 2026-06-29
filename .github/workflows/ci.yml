@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 permissions:
@@ -27,3 +26,35 @@ jobs:
       - run: npm run check
       - run: npm run build
       - run: npm test
+
+  e2e:
+    # Integration tests against the live Tezos X previewnet gateway. Push only (needs repo secrets — absent on
+    # forks/PRs), and only after the unit matrix passes (don't spend testnet funds on a broken build). Serialized
+    # GLOBALLY: the demo keys (buyer/seller/EVM) can't be driven by two runs at once.
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    name: e2e (previewnet)
+    concurrency:
+      group: e2e-previewnet
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:e2e
+        env:
+          MICHELSON_RPC: ${{ secrets.MICHELSON_RPC }}
+          EVM_RPC: ${{ secrets.EVM_RPC }}
+          FREE_ROUTE_API: ${{ secrets.FREE_ROUTE_API }}
+          FREE_ROUTE_API_KEY: ${{ secrets.FREE_ROUTE_API_KEY }}
+          TZKT_EXPLORER: ${{ secrets.TZKT_EXPLORER }}
+          EVM_EXPLORER: ${{ secrets.EVM_EXPLORER }}
+          BUYER_MICHELSON_SK: ${{ secrets.BUYER_MICHELSON_SK }}
+          SELLER_MICHELSON_SK: ${{ secrets.SELLER_MICHELSON_SK }}
+          EVM_SK: ${{ secrets.EVM_SK }}
+          TEST_FA2: ${{ secrets.TEST_FA2 }}
+          OBJKT_MARKETPLACE: ${{ secrets.OBJKT_MARKETPLACE }}

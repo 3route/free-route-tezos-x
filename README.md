@@ -6,6 +6,8 @@ Turn **free-route** swaps (any ERC20/XTZ pair) on **Tezos X** into ready-to-sign
 
 A small, dependency-light, **isomorphic** (browser + Node) ESM library. It only *prepares* operations — you sign and broadcast them with your own wallet ([Taquito](https://taquito.io) on the Michelson side, an EVM wallet on the EVM side).
 
+> **Live demo dApp:** [**3route/free-route-tezos-x-example**](https://github.com/3route/free-route-tezos-x-example) (Next.js) — buy / bridge / mint-list from both wallet sides (Temple + MetaMask), showing the server/client API-key split. The canonical example of consuming this SDK.
+
 ## How it works
 
 Tezos X is one chain with two interfaces — Michelson (Tezlink) and EVM (Etherlink) — that can call each other atomically within a single transaction. This library prepares the calls for whichever side signs:
@@ -257,6 +259,8 @@ Michelson builders return Taquito `ParamsWithKind` (an **operation**); EVM build
 ## Demo / scripts
 
 The [`scripts/`](scripts) folder has an end-to-end demo on Tezos X previewnet (deploy an NFT + marketplace, list an ask, then buy it from **either** the Michelson or the EVM side). See [scripts/README.md](scripts/README.md).
+
+Those same flows are covered by automated integration tests against the live previewnet gateway — `npm run test:e2e` (buy / buy-with-recipient / bridge / bridge-with-receiver on both sides, asserting the on-chain outcome). They need a funded `.env`; the offline unit suite (`npm test`) stays mock-only.
 
 ## License
 
