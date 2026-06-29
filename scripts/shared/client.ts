@@ -1,9 +1,16 @@
 // scripts/shared/client.ts — helpers shared by both the Michelson and EVM demo flows.
 import { TezosToolkit } from '@taquito/taquito';
 import { privateKeyToAccount } from 'viem/accounts';
-import { FreeRouteTezosX, tezosXPreviewnet } from '../../src/index.js';
+import { FreeRouteTezosX, XTZ, tezosXPreviewnet } from '../../src/index.js';
 import type { EvmAddress, FreeRouteToken } from '../../src/index.js';
 import { env, need } from './env.js';
+
+/** Native XTZ as a FreeRouteToken (mutez, 6 dp) — used by the swap flows alongside registry ERC20s. */
+export const XTZ_TOKEN: FreeRouteToken = { address: XTZ.address, decimals: 6, symbol: 'XTZ', name: 'Tez' };
+
+/** Resolve a swap token by symbol: native XTZ literal, or a registry ERC20 (throws if absent). */
+export const resolveToken = (fr: FreeRouteTezosX, symbol: string): Promise<FreeRouteToken> =>
+  symbol === 'XTZ' ? Promise.resolve(XTZ_TOKEN) : findToken(fr, symbol);
 
 /** The EVM buyer's address derived from EVM_SK (null if not configured). Read-only — no signing. */
 export const evmAddressFromEnv = (): EvmAddress | null =>

@@ -3,11 +3,12 @@
 Dev/demo scripts for **Tezos X previewnet**. Each loads `.env` (copy from [`../.env.example`](../.env.example)) and runs via `npm run <name>`. Per-run knobs go before the command (`PAY_SYMBOL=USDT npm run setup`) and override `.env`. Errors surface raw (no try/catch).
 
 Grouped by side, mirroring `src/`:
-- **`shared/`** — `env.ts` (config), `client.ts` (free-route client + token/ask-price helpers), `setup.ts`, `deploy-*.ts` (one-time on-chain fixtures, built with Taquito).
+- **`shared/`** — `env.ts` (config), `ctx.ts` (shared context + `makeToolkit`/`poll`/main-guard helpers), `client.ts` (free-route client + token/ask-price helpers), `setup.ts`, `deploy-*.ts` (one-time on-chain fixtures, built with Taquito).
 - **`michelson/`** — Temple-style flow: `addresses.ts`, `send.ts` (Taquito sender), `bridge.ts` (swap), `example-buy.ts`.
 - **`evm/`** — MetaMask-style flow: `addresses.ts`, `send.ts` (viem sender), `fund.ts` (token top-up helper, used by `setup`), `bridge.ts` (swap), `example-buy.ts`.
+- **`e2e/`** — automated integration tests (`e2e.test.ts`, `assert.ts`) — `npm run test:e2e`, see below.
 
-Both buy flows purchase the **same listed ask** (created by `setup`); they differ only in which wallet signs.
+Each flow file (`setup` / `example-buy` / `bridge`) is an **exported function + a thin CLI wrapper**, so the demo commands and the e2e tests run the same code. Both buy flows purchase the **same listed ask** (created by `setup`); they differ only in which wallet signs.
 
 ## First-time setup (in order)
 
@@ -45,6 +46,15 @@ After the first run, repeat only **setup → a buy** for each new ask.
 | `bridge:evm` | **EVM:** swap `SRC_SYMBOL` → `DST_SYMBOL` on the EVM account | `EVM_RPC`, `EVM_EXPLORER`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `EVM_SK` | `SRC_SYMBOL` (XTZ), `DST_SYMBOL` (USDC), `IN_AMOUNT` (0.05), `RECEIVER` |
 | `bridge:michelson` | **Michelson:** swap `SRC_SYMBOL` → `DST_SYMBOL`, signed by the buyer | `MICHELSON_RPC`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `TZKT_EXPLORER`, `BUYER_MICHELSON_SK` | `SRC_SYMBOL` (USDC), `DST_SYMBOL` (XTZ), `IN_AMOUNT` (0.05), `RECEIVER` |
 | `example-buy:evm` | **EVM:** pay an ERC20 → buy the ask (approve+swap+fulfill) | `MICHELSON_RPC`, `EVM_RPC`, `EVM_EXPLORER`, `FREE_ROUTE_API`, `FREE_ROUTE_API_KEY`, `EVM_SK`, `OBJKT_MARKETPLACE`, `ASK_ID` | `PAY_SYMBOL` (USDC), `NFT_RECIPIENT` |
+
+## End-to-end tests (`npm run test:e2e`)
+
+`scripts/e2e/` turns the flows above into automated integration tests against the **live** previewnet gateway, asserting the on-chain outcome (FA2 ledger ownership, ERC20 received). Six cases, both wallet sides: buy → self, buy → recipient (`proxy_for`), bridge → self, bridge → recipient (`receiver`).
+
+- **Prerequisites:** the same `.env` as the demo — incl. `EVM_SK` and the deployed `TEST_FA2` / `OBJKT_MARKETPLACE` — with the throwaway keys funded via the [faucet](https://faucet.previewnet.tezosx.nomadic-labs.com). `buildCtx()` fails fast (a clear `need(...)` message) if anything is missing; a `before()` preflight checks the XTZ balances before spending.
+- **Reuse:** each case calls the exact `runSetup` / `buyMichelson` / `buyEvm` / `bridgeMichelson` / `bridgeEvm` functions the CLI scripts run — no duplicated flow logic.
+- **Must run sequentially.** The assertions measure balance deltas on shared accounts (the alias / EVM account), so concurrent cases on the same account would collide. `node:test` runs a single file's tests serially; CI serializes whole runs.
+- **Cost:** real previewnet XTZ — fees + DEX spread only (~0.1 XTZ/run); the NFT price round-trips to the seller key and bought tokens stay on your accounts. Nothing is locked.
 
 Notes:
 - The FA2/objkt deployer is `BUYER_MICHELSON_SK` (holds no special role); `setup` signs mint/list as the seller.

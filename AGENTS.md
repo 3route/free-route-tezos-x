@@ -12,9 +12,10 @@ Human docs: [`README.md`](README.md) (full API + examples) · runnable demo: [`s
 npm run check     # tsc --noEmit — type-check (run this after edits)
 npm run lint      # eslint .
 npm test          # tsx --test src/tests/*/*.test.ts — unit tests, fully offline (mocked fetch, fixtures)
+npm run test:e2e  # tsx --test scripts/e2e/*.test.ts — integration tests vs the LIVE previewnet gateway (needs .env + funded keys)
 npm run build     # rm -rf dist && tsc -p tsconfig.build.json -> dist/
 
-# manual end-to-end on previewnet (NOT automated tests — need scripts/.env, see scripts/README.md):
+# manual demo CLI on previewnet (one-off flows, not assertions — need scripts/.env, see scripts/README.md):
 npm run setup                 # deploy FA2 + objkt, list an ask
 npm run example-buy:michelson # buy from the tz1 side
 npm run example-buy:evm       # buy from the 0x side
@@ -85,8 +86,9 @@ See the API table in [`README.md`](README.md#api) for the full export list. Key 
   reverse direction misprices by the pool spread).
 - **Atomicity is the safety net.** `buildBatchTransaction(...ops)` → one signed group; if the final op reverts
   (e.g. the ask was already filled) the whole group rolls back and the payer keeps their funds.
-- **Tests are offline.** `npm test` mocks fetch / uses fixtures — no RPC. Real gateway flows live in `scripts/`
-  and need a funded previewnet account + `scripts/.env`; they are **not** run by CI.
+- **Two test tiers.** `npm test` is offline (mocks fetch / fixtures, no RPC) — always safe to run. `npm run
+  test:e2e` (`scripts/e2e/`) runs the real flows against the **live** previewnet gateway: needs a funded
+  `scripts/.env` (or CI secrets) and **must stay sequential** (it asserts balance deltas on shared accounts).
 - **Forging.** `forgeMichelson` strips the `0x05` PACK tag — callMichelson data is the raw packed Micheline.
 
 ## Reference integration

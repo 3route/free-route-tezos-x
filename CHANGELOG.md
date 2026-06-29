@@ -12,6 +12,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `AGENTS.md` — guidance for AI coding agents (commands, layout, the two-runtime model, conventions, gotchas), with
   a `CLAUDE.md` that imports it so Claude Code and other tools share one source of truth.
 - Demo scripts: optional NFT recipient (objkt `proxy_for`) on the buy flows and `receiver` on the swap flows.
+- **Automated end-to-end tests against the previewnet gateway** (`npm run test:e2e`): buy, buy-with-recipient,
+  bridge, and bridge-with-receiver from both wallet sides, asserting the on-chain outcome (FA2 NFT ownership,
+  ERC20 received). Reuses the demo flow code, so the CLI scripts and the tests run the same path.
+
+### Changed
+
+- Internal: the demo flow scripts (`setup` / `example-buy` / `bridge`) are now each an exported function plus a thin
+  CLI wrapper; the `npm run …` entrypoints and their behaviour are unchanged.
 
 ## [0.3.0] — 2026-06-26
 
