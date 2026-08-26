@@ -7,6 +7,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **`estimateMichelsonOperation`** (facade / builder: `michelson.estimateOperation`) — simulate a Michelson op-group
+  on the node and size it: `call_evm` ops get the node's estimate × `CALL_EVM_ESTIMATE_MARGIN` (2), fee priced at
+  the node's rates (`mempool/filter`), storage floored at `CALL_EVM_STORAGE_LIMIT`; pure-Michelson ops keep the
+  node's estimate. The recommended sizing at send time (per the Tezos X gas docs); the group is also checked
+  end-to-end before signing. Takes a `TezosEstimator` (`Pick<TezosToolkit, 'estimate' | 'rpc'>`).
+- `isCallEvmOperation`, `CALL_EVM_GAS_CAP`, `CALL_EVM_ESTIMATE_MARGIN`, `CALL_EVM_STORAGE_LIMIT` exports.
+- README: "Gas on the Michelson side".
+
+### Changed
+
+- **`MichelsonOpsBuilder` gained a required `estimateOperation` member** — type-level breaking for code that
+  implements or mocks the interface (the factory/facade implement it for you).
+- **Offline `call_evm` gas pins recalibrated for previewnet proto 025** (`callEvmGas.fromEvmEstimate`:
+  `10_000 + evmGas/48`, capped at `CALL_EVM_GAS_CAP` = 600k < the 660k per-op limit; fallback 100k). The previous
+  `20_000 + evmGas/10` overshot the per-op limit once the aggregator started folding the L1 data surcharge into
+  `tx.gas` (`gas_limit_too_high` on bridge swaps).
+
+### Fixed
+
+- Michelson bridge swaps (`XTZ → ERC20` on split routes) rejected with `gas_limit_too_high` on previewnet.
+
 ## [0.3.1] — 2026-06-29
 
 > Tooling & docs only — the published library code (`dist/`) is unchanged from 0.3.0.

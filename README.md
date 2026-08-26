@@ -91,11 +91,29 @@ const fulfill = objkt.buildMichelsonFulfillAskOperation({
 });
 
 const ops = buildBatchTransaction(swapOps, fulfill);
-const batch = await tezos.contract.batch().with(ops).send(); // a single signature
+// size the group on the node (also checks it end-to-end before signing) — see "Gas on the Michelson side"
+const readyOps = await freeRoute.michelson.estimateOperation({ tezos, ops });
+const batch = await tezos.contract.batch().with(readyOps).send(); // a single signature
 await batch.confirmation();
 ```
 
 Just need a swap (no marketplace)? Stop after `freeRoute.michelson.buildSwapOperation` and send `swapOps`.
+
+### Gas on the Michelson side
+
+The gas a Michelson op *declares* becomes the EVM budget of its nested `call_evm` call, and the node's own
+estimate of such an op runs short of what must be declared (up to ~1.4×), so a bare wallet/Taquito estimate fails
+with `tezlink_error`. The SDK handles it two ways:
+
+- **Offline pins (default).** Every `call_evm` op from the builders carries `gasLimit` / `storageLimit` / `fee`
+  sized from the aggregator's EVM gas estimate, capped under the per-op gas limit. No RPC; a generous margin
+  (you pay some extra fee).
+- **`estimateOperation` (preferred at send time).** Simulates the whole group once, sizes the `call_evm` ops at
+  the node's estimate × 2 (fee priced at the node's rates) and leaves pure-Michelson ops at the node's estimate.
+  Cheaper, tracks protocol changes, and fails *before* signing if the group would revert (e.g. the ask is gone).
+  Call it once, right before signing; pass any signer- or wallet-backed `TezosToolkit`.
+
+The EVM side needs neither: `EvmTxRequest` carries no gas and the wallet's estimate is accurate.
 
 ## Quick start — EVM (MetaMask)
 
@@ -225,7 +243,9 @@ const michelson = createMichelsonOpsBuilder(tezosXMainnet.michelsonGateway); // 
 
 const swap = await freeRoute.getSwap({ src, dst, amount, isExactOut: true, from, receiver });
 const swapOps = michelson.buildSwapOperation({ swap, srcAddress: src });
-// sign swapOps with your Taquito wallet (or compose with a marketplace op — see Quick start)
+// size on the node with the wallet-backed toolkit (needs only the public RPC, no API key), then sign
+const readyOps = await michelson.estimateOperation({ tezos, ops: swapOps });
+// (or compose with a marketplace op first — see Quick start)
 ```
 
 The [demo dApp](https://github.com/3route/free-route-tezos-x-example) wires exactly this — Next.js route handlers plus a browser shim.
@@ -248,6 +268,8 @@ Three tiers for building ops — pick one and stay there:
 | `objkt.buildMichelsonFulfillAskOperation` / `objkt.buildEvmFulfillAskTransaction` | helper | objkt v4 `fulfill_ask` — Michelson op / EVM tx |
 | `resolveApproval` / `readAllowance` | helper | read an ERC20 allowance and pick the minimal safe `ApprovalMode` |
 | `buildBatchTransaction` | helper | flatten Michelson ops into one atomic group |
+| `estimateMichelsonOperation` | helper | simulate a Michelson op-group on the node and size its `call_evm` ops (estimate × `CALL_EVM_ESTIMATE_MARGIN`, capped) — facade: `michelson.estimateOperation`; see [Gas on the Michelson side](#gas-on-the-michelson-side) |
+| `callEvmGas`, `CALL_EVM_GAS_CAP` / `CALL_EVM_ESTIMATE_MARGIN` / `CALL_EVM_STORAGE_LIMIT` | helper | the offline `call_evm` sizing policy the builders pin by default, and its constants |
 | `forgeMichelson` | helper | forge a Micheline value for `callMichelson` data (EVM side) |
 | `targetForMinOut` | helper | gross up an exact-out target so the post-slippage floor covers a hard minimum |
 | `michelsonToEvmAlias` / `evmToMichelsonAlias` / `aliasOf` | helper | map an address to its alias on the other runtime (tz1 → 0x, 0x → KT1, or auto-detect) |

@@ -28,7 +28,7 @@ console.log(`deploying objkt system from ${admin} ...`);
 
 const codeOf = (name: string) => JSON.parse(readFileSync(new URL(`../../contracts/objkt/${name}.json`, import.meta.url), 'utf8'));
 
-// gas/storage estimate fine (marketplace: ~12k gas / ~30k storage, far under the 3M/60k ceilings);
+// gas/storage estimate fine (marketplace: ~12k gas / ~30k storage, far under the 660k/60k per-op ceilings);
 // only the fee needs pinning — previewnet's EVM-node fee policy is stricter than Taquito's fee estimate.
 const originate = async ({ name, storage, fee }: { name: string; storage: object; fee: number }) => {
   console.log(`originate ${name} ...`);

@@ -50,6 +50,13 @@ Tezos X = one chain, two interfaces that call each other atomically in a single 
 
 Both gateway addresses are fixed per network (`EVM_GATEWAY` / `MICHELSON_GATEWAY`, exposed on every facade).
 
+**Gas on the Michelson side.** The gas a Michelson op declares becomes the EVM budget of its `call_evm` call, and
+the node's estimate of such an op runs short of what must be declared (up to ~1.4×) — a bare wallet/Taquito
+estimate fails with `tezlink_error`. Builders therefore pin `gasLimit`/`storageLimit`/`fee` on `call_evm` ops
+offline (`callEvmGas`, sized from the aggregator's `tx.gas`, capped under the per-op limit); at send time prefer
+`estimateMichelsonOperation` (node simulation × `CALL_EVM_ESTIMATE_MARGIN`, fee at the node's rates, pre-flight
+check of the whole group). Pure-Michelson ops (fulfill, mint) estimate fine; the EVM side needs nothing.
+
 ## Public API (three tiers — pick one, stay there)
 
 1. **Facade**: `FreeRouteTezosX` (`.michelson.*` + `.evm.*`), or the side-only `FreeRouteTezosXMichelson` /
@@ -61,7 +68,8 @@ Both gateway addresses are fixed per network (`EVM_GATEWAY` / `MICHELSON_GATEWAY
 
 See the API table in [`README.md`](README.md#api) for the full export list. Key helpers: `michelsonToEvmAlias` /
 `evmToMichelsonAlias` / `aliasOf`, `toEvmUnits` / `fromEvmUnits`, `resolveApproval`, `targetForMinOut`,
-`forgeMichelson`, `tezosXMainnet` / `tezosXPreviewnet`.
+`estimateMichelsonOperation` (facade: `michelson.estimateOperation`), `forgeMichelson`, `tezosXMainnet` /
+`tezosXPreviewnet`.
 
 ## Conventions
 
@@ -90,6 +98,10 @@ See the API table in [`README.md`](README.md#api) for the full export list. Key 
   test:e2e` (`scripts/e2e/`) runs the real flows against the **live** previewnet gateway: needs a funded
   `scripts/.env` (or CI secrets) and **must stay sequential** (it asserts balance deltas on shared accounts).
 - **Forging.** `forgeMichelson` strips the `0x05` PACK tag — callMichelson data is the raw packed Micheline.
+- **Gas calibration moves with the protocol.** The Michelson↔EVM gas coefficient is benchmark-derived and changed
+  ~17× between previewnet protos 024 and 025. `estimateMichelsonOperation` follows the node; the offline pins in
+  `call-evm-limits.ts` need re-measuring after an upgrade (`npm run test:e2e` is the canary — `gas_limit_too_high`
+  means the pin overshoots the per-op limit, `tezlink_error` means it undershoots).
 
 ## Reference integration
 

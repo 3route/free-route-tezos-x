@@ -3,7 +3,7 @@ export type EvmAddress = string; // 0x… 20-byte EVM address
 export type Hex = string; // 0x-prefixed hex
 export type Nat = bigint | number | string; // any nat representation the michelson-encoder accepts
 
-// Explicit Tezos operation limits (fee in mutez). Setting all three on an op makes Taquito skip estimation.
+// Explicit Tezos operation limits (fee in mutez). Set on an op, Taquito/wallets use them instead of their own estimate.
 export interface OpLimits {
   gasLimit: number;
   storageLimit: number;

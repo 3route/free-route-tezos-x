@@ -49,7 +49,7 @@ After the first run, repeat only **setup → a buy** for each new ask.
 
 ## End-to-end tests (`npm run test:e2e`)
 
-`scripts/e2e/` turns the flows above into automated integration tests against the **live** previewnet gateway, asserting the on-chain outcome (FA2 ledger ownership, ERC20 received). Six cases, both wallet sides: buy → self, buy → recipient (`proxy_for`), bridge → self, bridge → recipient (`receiver`).
+`scripts/e2e/` turns the flows above into automated integration tests against the **live** previewnet gateway, asserting the on-chain outcome (FA2 ledger ownership, ERC20 received). Eight cases, both wallet sides: buy → self, buy → recipient (`proxy_for`), bridge → self, bridge → recipient (`receiver`).
 
 - **Prerequisites:** the same `.env` as the demo — incl. `EVM_SK` and the deployed `TEST_FA2` / `OBJKT_MARKETPLACE` — with the throwaway keys funded via the [faucet](https://faucet.previewnet.tezosx.nomadic-labs.com). `buildCtx()` fails fast (a clear `need(...)` message) if anything is missing; a `before()` preflight checks the XTZ balances before spending.
 - **Reuse:** each case calls the exact `runSetup` / `buyMichelson` / `buyEvm` / `bridgeMichelson` / `bridgeEvm` functions the CLI scripts run — no duplicated flow logic.
@@ -58,6 +58,9 @@ After the first run, repeat only **setup → a buy** for each new ask.
 
 Notes:
 - The FA2/objkt deployer is `BUYER_MICHELSON_SK` (holds no special role); `setup` signs mint/list as the seller.
+- Michelson groups (buy / bridge) go through `sendGroup` (`scripts/michelson/send.ts`), which sizes them on the
+  node with `estimateMichelsonOperation` before signing — the SDK's recommended send path; the builders' offline
+  gas pins are the fallback when no `TezosToolkit` is at hand.
 - `FREE_ROUTE_API_KEY` is the free-route API key (required).
 - **Atomicity:** the SDK's `evm.*` builders return a ready `EvmTxRequest[]` — a dApp sends it in one `wallet_sendCalls` (EIP-5792) for an atomic batch. These headless scripts have no wallet, so `evm/send.ts` sends the txs **sequentially** (functional check); it is not atomic.
 - **Sending to a different recipient (optional):**

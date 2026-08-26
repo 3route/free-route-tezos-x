@@ -31,18 +31,18 @@ const limitsOf = ({ gasLimit, storageLimit, fee }: ParamsWithKind & Partial<OpLi
 
 test('call_evm ops get estimate × margin (fee scaled, storage floored); pure-Michelson ops keep the node estimate', async () => {
   const swapEst = est(10_875, 5_500); // ~1.1 KB of calldata at 4 µtz/byte dominates the suggested fee
-  const sized = await estimateMichelsonOperation({ tezos: toolkit([swapEst, est(9_982, 1_200, 100)]), ops: [callEvm(), fulfill()] });
-  assert.equal(sized.length, 2);
-  assert.deepEqual(limitsOf(sized[0]!), { gasLimit: 21_750, storageLimit: CALL_EVM_STORAGE_LIMIT, fee: feeFor(swapEst, 21_750) });
-  assert.equal(limitsOf(sized[0]!).fee, 5_500 + Math.ceil(10_875 * 0.045)); // added gas at the node's rate — not a doubled 11 000
-  assert.deepEqual(limitsOf(sized[1]!), { gasLimit: 9_982, storageLimit: 100, fee: 1_200 });
+  const readyOps = await estimateMichelsonOperation({ tezos: toolkit([swapEst, est(9_982, 1_200, 100)]), ops: [callEvm(), fulfill()] });
+  assert.equal(readyOps.length, 2);
+  assert.deepEqual(limitsOf(readyOps[0]!), { gasLimit: 21_750, storageLimit: CALL_EVM_STORAGE_LIMIT, fee: feeFor(swapEst, 21_750) });
+  assert.equal(limitsOf(readyOps[0]!).fee, 5_500 + Math.ceil(10_875 * 0.045)); // added gas at the node's rate — not a doubled 11 000
+  assert.deepEqual(limitsOf(readyOps[1]!), { gasLimit: 9_982, storageLimit: 100, fee: 1_200 });
   assert.equal(CALL_EVM_ESTIMATE_MARGIN, 2);
 });
 
 test('detects call_evm by entrypoint, whatever gateway address the op was built against', async () => {
   const other = 'KT1NLW24kq4dKjCjY3xy4C7g3qedKeCkTzuB';
-  const sized = await estimateMichelsonOperation({ tezos: toolkit([est(10_000, 1_000)]), ops: [callEvm(other)] });
-  assert.equal(limitsOf(sized[0]!).gasLimit, 20_000);
+  const readyOps = await estimateMichelsonOperation({ tezos: toolkit([est(10_000, 1_000)]), ops: [callEvm(other)] });
+  assert.equal(limitsOf(readyOps[0]!).gasLimit, 20_000);
 });
 
 test('simulates UNPINNED: the builder pin is stripped before the estimate call, and the input is not mutated', async () => {
@@ -54,9 +54,9 @@ test('simulates UNPINNED: the builder pin is stripped before the estimate call, 
 });
 
 test('custom margin; a call_evm estimate above the cap throws instead of sizing below the estimate', async () => {
-  const sized = await estimateMichelsonOperation({ tezos: toolkit([est(10_000, 1_000)]), ops: [callEvm()], margin: 3 });
-  assert.equal(limitsOf(sized[0]!).gasLimit, 30_000);
-  assert.equal(limitsOf(sized[0]!).fee, 1_000 + 20_000 * FEE_PER_GAS);
+  const readyOps = await estimateMichelsonOperation({ tezos: toolkit([est(10_000, 1_000)]), ops: [callEvm()], margin: 3 });
+  assert.equal(limitsOf(readyOps[0]!).gasLimit, 30_000);
+  assert.equal(limitsOf(readyOps[0]!).fee, 1_000 + 20_000 * FEE_PER_GAS);
   await assert.rejects(
     estimateMichelsonOperation({ tezos: toolkit([est(CALL_EVM_GAS_CAP + 1, 61_000)]), ops: [callEvm()] }),
     /above the 600000 cap/,
@@ -68,9 +68,9 @@ test('custom margin; a call_evm estimate above the cap throws instead of sizing 
 });
 
 test('an unrevealed source: exactly one leading reveal estimate is skipped; any other count mismatch throws', async () => {
-  const sized = await estimateMichelsonOperation({ tezos: toolkit([est(1_000, 400) /* reveal */, est(10_000, 1_000), est(5_000, 700)]), ops: [callEvm(), fulfill()] });
-  assert.equal(limitsOf(sized[0]!).gasLimit, 20_000);
-  assert.equal(limitsOf(sized[1]!).gasLimit, 5_000);
+  const readyOps = await estimateMichelsonOperation({ tezos: toolkit([est(1_000, 400) /* reveal */, est(10_000, 1_000), est(5_000, 700)]), ops: [callEvm(), fulfill()] });
+  assert.equal(limitsOf(readyOps[0]!).gasLimit, 20_000);
+  assert.equal(limitsOf(readyOps[1]!).gasLimit, 5_000);
   await assert.rejects(estimateMichelsonOperation({ tezos: toolkit([est(1, 1)]), ops: [callEvm(), fulfill()] }), /returned 1 entries for 2 ops/);
   await assert.rejects(estimateMichelsonOperation({ tezos: toolkit([est(1, 1), est(1, 1), est(1, 1)]), ops: [callEvm()] }), /returned 3 entries for 1 ops/);
 });
