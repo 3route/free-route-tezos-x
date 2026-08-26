@@ -5,7 +5,9 @@ import { callEvmGas } from '../call-evm-limits.js';
 import type { EvmAddress, Hex, MichelsonAddress, OpLimits } from '../../core/primitives.js';
 
 const SIG_APPROVE = 'approve(address,uint256)';
-const APPROVE_GAS = 12_000; // ERC20 approve via call_evm: measured floor ~3.5k, pinned with headroom
+// ERC20 approve via call_evm: measured floor ~1.6k under proto 025 (the node estimates it within 1%); pinned with
+// ~7x headroom because the +100 margin wallets/Taquito add on top of an estimate leaves no room for variability.
+const APPROVE_GAS = 12_000;
 
 export interface BuildMichelsonApproveOperationOptions {
   michelsonGateway: MichelsonAddress;
