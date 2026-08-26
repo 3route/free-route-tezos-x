@@ -4,6 +4,7 @@ export * from './core/index.js';
 
 // ── Michelson side ──
 export * from './michelson/call-evm-limits.js';
+export * from './michelson/estimate.js';
 export * from './michelson/operations/index.js';
 export * from './michelson/facade.js';
 

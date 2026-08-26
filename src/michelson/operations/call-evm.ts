@@ -20,13 +20,13 @@ export interface BuildCallEvmOperationOptions {
   abiargs: Hex; // ABI-encoded arguments ONLY — no selector (the gateway derives it from sig)
   valueMutez?: bigint; // msg.value in mutez (1e6); the gateway expands ×1e12 to wei
   callback?: MichelsonAddress | null; // `contract bytes` address to receive the EVM return bytes; null = none
-  limits?: OpLimits; // fully sizes the op so no estimation runs; omit to let Taquito estimate
+  limits?: OpLimits; // offline pin (see callEvmGas); replaced by `estimateMichelsonOperation` when sizing online
 }
 
 /**
- * A `call_evm` op invoking `dest.sig(abiargs)` via the gateway (alias = msg.sender). Pure builder: pass `limits`
- * (sized via {@link callEvmGas}) to fully specify the op so no estimation runs — required because estimation
- * undershoots the cross-runtime call; omit `limits` only to let Taquito estimate (inaccurate today, see call-evm-limits).
+ * A `call_evm` op invoking `dest.sig(abiargs)` via the gateway (alias = msg.sender). Pure builder. Size it with
+ * `limits` (offline, via {@link callEvmGas}) or, preferably, run the group through `estimateMichelsonOperation`
+ * before signing — a bare Taquito/wallet estimate undershoots the cross-runtime call (see call-evm-limits).
  */
 export const buildCallEvmOperation = (o: BuildCallEvmOperationOptions): ParamsWithKind => ({
   kind: OpKind.TRANSACTION,
@@ -39,3 +39,7 @@ export const buildCallEvmOperation = (o: BuildCallEvmOperationOptions): ParamsWi
   },
   ...(o.limits ?? {}),
 });
+
+/** Is this op a cross-runtime `call_evm` call (the ops that need a gas margin over the node's estimate)? */
+export const isCallEvmOperation = (op: ParamsWithKind): boolean =>
+  op.kind === OpKind.TRANSACTION && op.parameter?.entrypoint === 'call_evm';

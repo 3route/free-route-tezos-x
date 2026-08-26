@@ -1,36 +1,33 @@
-// Sizing policy for cross-runtime `call_evm` ops (offline default — no RPC needed).
+// Offline sizing for cross-runtime `call_evm` ops (no RPC). Preferred when a TezosToolkit is at hand:
+// `estimateMichelsonOperation` (simulate, then apply a margin) — see estimate.ts.
 //
-// Why pin at all: on Tezos X the Michelson gas_limit an op DECLARES is converted into the EVM budget of the
-// nested call (see https://x.tezos.com/docs/overview/resources — coefficient `c`, "simulated limits may need a
-// margin"). The node's simulation reports what the op CONSUMES, and for call_evm that runs 0.94–1.37x short of
-// the limit that must be declared (measured on proto 025 across 9 routes: single-hop / 5-pool splits / native
-// vs ERC20 legs). Wallets and Taquito add only +100 gas on top of an estimate, so an unpinned call_evm swap fails
-// with `tezlink_error`. Two ways to size it:
-//   - offline (this module): derive from the EVM gas estimate the aggregator returns (`swap.tx.gas`);
-//   - online (preferred when a TezosToolkit is at hand): simulate, then apply a margin — see estimate.ts.
+// Why pin: the Michelson gas_limit an op declares becomes the EVM budget of the nested call (Tezos X gas model,
+// https://x.tezos.com/docs/overview/resources). The node's simulation reports what is consumed, which runs up to
+// ~1.4x short of what must be declared, and wallets/Taquito add only +100 gas — so an unpinned call_evm swap fails
+// with `tezlink_error`.
 //
-// What `swap.tx.gas` is (rust-3route, swap.rs): execution estimate (base_overhead 200k + a per-hop table, e.g.
-// IguanaV3 300k / NativeWrapper 77.5k) PLUS the L1 data (inclusion) surcharge the Etherlink-family node folds into
-// the gas limit: 4000 gas/byte × (150 + calldata bytes). For a 5-pool split swap that is ≈1.4M execution + ≈5.1M
-// L1 data = 6.52M — the L1 part dominates and scales with calldata size, not with work. We size from the TOTAL
-// on purpose: it is a stable upper bound and needs no chain parameters here.
-//
-// Calibration (proto 025, PsUshuai): declared Michelson gas needed ≈ tx.gas / 485 (measured on 9 routes, e.g.
-// 6.52M → 13.6k). The formula below keeps ~10x headroom over that and is capped BELOW the 660k per-op ceiling,
-// so a future change of `c` can only cost fee, never a `gas_limit_too_high` rejection. `c` is benchmark-derived
-// and did change 024 → 025 (~17x); re-measure when the protocol changes.
+// Calibration (previewnet, proto 025): declared gas needed ≈ `swap.tx.gas` / 485 (tx.gas = execution + the L1
+// data surcharge the node folds into the limit; sizing from the total is a stable upper bound). The formula keeps
+// ~10x headroom and is capped under the 660k per-op ceiling, so a change of the conversion coefficient (it is
+// benchmark-derived and moves with protocol upgrades) can only cost fee, never a rejection. Re-measure on upgrades.
 
 import type { OpLimits } from '../core/primitives.js';
 
-/** Hard cap for a pinned call_evm gasLimit — stays under hard_gas_limit_per_operation (660k on previewnet). */
+/** Cap for a call_evm gasLimit (pinned or estimated) — under hard_gas_limit_per_operation (660k on previewnet). */
 export const CALL_EVM_GAS_CAP = 600_000;
 
-const EVM_GAS_DIVISOR = 48; // ≈ 10x headroom over the measured 1/485
-const BASE_GAS = 10_000; // Michelson-side overhead of the gateway call
-const FALLBACK_GAS = 100_000; // when no EVM estimate is available: ~7x the largest measured need
+/** Multiplier over the node's estimate for call_evm ops (`estimateMichelsonOperation`); measured need is ≤1.4x. */
+export const CALL_EVM_ESTIMATE_MARGIN = 2;
 
-// fee slope 0.125 > the 0.1 µtz/gas minimal, so it covers the gas + byte terms; storage ~0 for call_evm.
-const complete = (gasLimit: number, storageLimit = 350): OpLimits => ({
+/** storageLimit floor for a call_evm op — storage is ~0 but unused limit is free, so keep a floor. */
+export const CALL_EVM_STORAGE_LIMIT = 350;
+
+const EVM_GAS_DIVISOR = 48; // ~10x headroom over the measured 1/485
+const BASE_GAS = 10_000; // Michelson-side overhead of the gateway call
+const FALLBACK_GAS = 100_000; // no EVM estimate available: ~7x the largest measured need
+
+// fee slope 0.125 > the 0.1 µtz/gas minimal, so it covers the gas + byte terms.
+const complete = (gasLimit: number, storageLimit = CALL_EVM_STORAGE_LIMIT): OpLimits => ({
   gasLimit,
   storageLimit,
   fee: 1000 + Math.ceil(gasLimit / 8),
