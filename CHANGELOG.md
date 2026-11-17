@@ -7,6 +7,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-11-17
+
+### Fixed
+
+- **`michelsonToEvmAlias` follows the recoverable EVM aliases of Etherlink 8.0 "Horus"** (RFC-26051,
+  tezos/tezos!23037 + !23102, live on previewnet). The EVM alias of a tz1/tz2/tz3 is now the `CREATE2` address,
+  through the Safe singleton factory, of a rescue-account clone bound to the key hash — no longer
+  `keccak256(b58check)[0..20]`. KT1/tz4 keep the legacy derivation; `evmToMichelsonAlias` is unchanged. With the old
+  formula every Michelson-side swap was quoted/approved for an address that is no longer the account's alias.
+  Cross-checked against the node's `tez_getTezosEthereumAddress` and the 14 `frozen.json` vectors.
+
+### Added
+
+- `legacyMichelsonToEvmAlias` — the pre-8.0 derivation, for locating funds left on old aliases (they still forward
+  XTZ to the tz1, but ERC20s held there are no longer reachable from the account).
+
+### Changed
+
+- **Taquito 25 supported**: peer range widened to `^24.2.0 || ^25.1.1` (dev deps on 25.1.1). dApps should move to
+  `@taquito/beacon-wallet@25.1.1`, which carries the Beacon pairing/session security fixes (Tezos Agora advisory,
+  Nov 2026); the SDK itself has no Beacon dependency.
+
 ## [0.4.0] — 2026-08-26
 
 ### Added
@@ -113,7 +135,8 @@ Initial published release. Turns [free-route](https://free-route.io) swaps on Te
 - ESM-only package (Node ≥ 20); `@taquito/*` as peer deps; hand-rolled EVM/ABI utils on `@noble/hashes` (no ethers).
   Unit tests, README, and a tag-triggered npm publish workflow.
 
-[Unreleased]: https://github.com/3route/free-route-tezos-x/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/3route/free-route-tezos-x/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/3route/free-route-tezos-x/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/3route/free-route-tezos-x/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/3route/free-route-tezos-x/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/3route/free-route-tezos-x/compare/v0.2.2...v0.3.0

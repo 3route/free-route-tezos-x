@@ -1,6 +1,6 @@
 {
   "name": "@baking-bad/free-route-tezos-x",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -76,10 +76,10 @@
     "@noble/hashes": "^2.2.0"
   },
   "peerDependencies": {
-    "@taquito/michel-codec": "^24.2.0",
-    "@taquito/michelson-encoder": "^24.2.0",
-    "@taquito/taquito": "^24.2.0",
-    "@taquito/utils": "^24.2.0"
+    "@taquito/michel-codec": "^24.2.0 || ^25.1.1",
+    "@taquito/michelson-encoder": "^24.2.0 || ^25.1.1",
+    "@taquito/taquito": "^24.2.0 || ^25.1.1",
+    "@taquito/utils": "^24.2.0 || ^25.1.1"
   },
   "peerDependenciesMeta": {
     "@taquito/michel-codec": {
@@ -91,11 +91,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@taquito/michel-codec": "~24.3.0",
-    "@taquito/michelson-encoder": "~24.3.0",
-    "@taquito/signer": "~24.3.0",
-    "@taquito/taquito": "~24.3.0",
-    "@taquito/utils": "~24.3.0",
+    "@taquito/michel-codec": "~25.1.1",
+    "@taquito/michelson-encoder": "~25.1.1",
+    "@taquito/signer": "~25.1.1",
+    "@taquito/taquito": "~25.1.1",
+    "@taquito/utils": "~25.1.1",
     "@types/node": "^26.0.0",
     "eslint": "^10.5.0",
     "tsx": "^4.19.0",

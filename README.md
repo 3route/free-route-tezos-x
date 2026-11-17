@@ -272,7 +272,7 @@ Three tiers for building ops — pick one and stay there:
 | `callEvmGas`, `CALL_EVM_GAS_CAP` / `CALL_EVM_ESTIMATE_MARGIN` / `CALL_EVM_STORAGE_LIMIT` | helper | the offline `call_evm` sizing policy the builders pin by default, and its constants |
 | `forgeMichelson` | helper | forge a Micheline value for `callMichelson` data (EVM side) |
 | `targetForMinOut` | helper | gross up an exact-out target so the post-slippage floor covers a hard minimum |
-| `michelsonToEvmAlias` / `evmToMichelsonAlias` / `aliasOf` | helper | map an address to its alias on the other runtime (tz1 → 0x, 0x → KT1, or auto-detect) |
+| `michelsonToEvmAlias` / `evmToMichelsonAlias` / `aliasOf` | helper | map an address to its alias on the other runtime (tz1 → 0x, 0x → KT1, or auto-detect). tz1/tz2/tz3 → 0x is the Etherlink 8.0 recoverable (CREATE2 rescue-account) alias; `legacyMichelsonToEvmAlias` gives the pre-8.0 one |
 | `toEvmUnits` / `fromEvmUnits`, `XTZ`, `XTZ_ADDRESS` | helper | XTZ mutez ⇄ wei + the native-XTZ token |
 | `tezosXMainnet` / `tezosXPreviewnet`, `EVM_GATEWAY` / `MICHELSON_GATEWAY` | const | network presets (chainId + both gateways) and the fixed cross-runtime gateway addresses (same on every network) |
 
