@@ -38,6 +38,16 @@ test('michelsonToEvmAlias: tz1/tz2/tz3 → recoverable CREATE2 alias (frozen vec
   }
 });
 
+// Pinned against the previewnet node's `tez_getTezosEthereumAddress` (Etherlink 8.0): tz4 (BLS) and KT1 have no
+// rescue account, so the kernel keeps the legacy keccak alias for them.
+const TZ4_EVM_ALIAS = '0x149c5fcc1c9e6922c529ef0bb3f5c9c03a38fc6a';
+const KT1_EVM_ALIAS = '0x5e7ee6ad5402668bb99bf9cef8ebb70c0a48afc4';
+
+test('michelsonToEvmAlias: tz4 / KT1 → node-verified legacy alias', () => {
+  assert.equal(michelsonToEvmAlias(TZ4).toLowerCase(), TZ4_EVM_ALIAS);
+  assert.equal(michelsonToEvmAlias(KT1).toLowerCase(), KT1_EVM_ALIAS);
+});
+
 test('michelsonToEvmAlias: KT1/tz4 keep the legacy keccak alias; tz1 no longer does', () => {
   assert.equal(michelsonToEvmAlias(KT1), legacyMichelsonToEvmAlias(KT1));
   assert.equal(michelsonToEvmAlias(TZ4), legacyMichelsonToEvmAlias(TZ4));

@@ -31,7 +31,9 @@ jobs:
     # Integration tests against the live Tezos X previewnet gateway. Push only (needs repo secrets — absent on
     # forks/PRs), and only after the unit matrix passes (don't spend testnet funds on a broken build). Serialized
     # GLOBALLY: the demo keys (buyer/seller/EVM) can't be driven by two runs at once.
-    if: github.event_name == 'push'
+    # Skipped on tag pushes: the tagged commit was already e2e-tested by its branch push, and a tag run would
+    # otherwise share (and cancel within) the e2e-previewnet concurrency group with that branch run.
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     name: e2e (previewnet)
