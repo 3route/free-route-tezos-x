@@ -42,7 +42,7 @@ export async function runSetup(args: {
   const log = args.log ?? noop;
   const priceMutez = BigInt(Math.round(priceXtz * 1e6));
 
-  const link = (hash: string) => (args.tzktExplorer ? log(`  ${args.tzktExplorer}/${hash}`) : undefined);
+  const link = (hash: string) => (args.tzktExplorer ? log(`  ${args.tzktExplorer}/operations/${hash}`) : undefined);
   // pure-Michelson calls: gas/storage estimate fine on previewnet, so we pin only fee.
   const confirm = async (op: { confirmation(): Promise<unknown>; hash: string }) => {
     await op.confirmation();

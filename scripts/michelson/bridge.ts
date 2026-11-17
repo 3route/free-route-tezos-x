@@ -71,5 +71,5 @@ if (isMain(import.meta.url)) {
     receiver: env.RECEIVER as EvmAddress | undefined,
     log: console.log,
   });
-  console.log(`Done: ${need('TZKT_EXPLORER')}/${r.hash}`);
+  console.log(`Done: ${need('TZKT_EXPLORER')}/operations/${r.hash}`);
 }

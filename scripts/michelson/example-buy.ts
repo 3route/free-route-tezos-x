@@ -103,5 +103,5 @@ if (isMain(import.meta.url)) {
     recipient: env.NFT_RECIPIENT,
     log: console.log,
   });
-  console.log(`Done: ${need('TZKT_EXPLORER')}/${r.hash} · NFT → ${r.expectedOwner}`);
+  console.log(`Done: ${need('TZKT_EXPLORER')}/operations/${r.hash} · NFT → ${r.expectedOwner}`);
 }

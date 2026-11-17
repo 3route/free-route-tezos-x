@@ -36,7 +36,7 @@ export async function sendSequential(txs: readonly EvmTxRequest[], explorer?: st
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== 'success') throw new Error(`EVM tx reverted: ${hash}`);
     hashes.push(hash);
-    if (explorer) console.log(`  ${hashes.length}. ${explorer}/tx/${hash}`); // EVM (blockscout) tx URL; number matches the step plan
+    if (explorer) console.log(`  ${hashes.length}. ${explorer}/operations/${hash}`); // EVM tx on 0xTzKT; number matches the step plan
   }
   return hashes;
 }
